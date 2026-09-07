@@ -36,7 +36,18 @@ def status(engine, branch=None, commit=None):
             reason = entry.get("merge_reason")
     actionable = bool(reason and entry.get("reason_code") != "barrier")
     error = report.get("error")
-    verdict = "deployed" if delivered else "action needed" if actionable or error else "merged" if merged else "pending"
+    checks = report.get("checks_status")
+    verdict = (
+        "action needed"
+        if checks == "failed"
+        else "deployed"
+        if delivered
+        else "action needed"
+        if actionable or error
+        else "merged"
+        if merged
+        else "pending"
+    )
     return {
         "branch": branch,
         "commit": sha,
@@ -47,6 +58,7 @@ def status(engine, branch=None, commit=None):
         "last_sync": report.get("timestamp"),
         "phase": report.get("current_phase"),
         "error": error,
+        "checks": checks,
         "last_merge_attempt": entry.get("last_merge_attempt"),
         "publication_pending": read_json(engine.delivery_path).get("attempt", {}).get("status") == "completed",
     }
@@ -62,6 +74,8 @@ def render(value):
         print(f"Reason: {value['reason']}")
     if value["phase"]:
         print(f"Sync loop phase: {value['phase']}")
+    if value["checks"]:
+        print(f"Checks: {value['checks']}")
     if value["error"]:
         print(f"Last sync error: {value['error']['message']}")
     if value["publication_pending"]:

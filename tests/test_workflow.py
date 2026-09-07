@@ -5,6 +5,7 @@ from dataclasses import replace
 
 import pytest
 
+from coloph_sync.cli import status
 from coloph_sync.config import Config, load_config
 from coloph_sync.engine import Engine
 from coloph_sync.git import Git
@@ -46,6 +47,18 @@ def test_state_round_trip(state):
 def test_state_rejects_combinations():
     with pytest.raises(ValueError):
         read_state("Subject\n\nSync-State: passed\nSync-State: wip")
+
+
+def test_status_exposes_failed_integration_after_deployment(project):
+    config, git = project
+    engine = Engine(config)
+    engine.deploy(git.out("rev-parse", "HEAD"))
+    engine.report["checks_status"] = "failed"
+    engine.save()
+    result = status(engine)
+    assert result["deployed"]
+    assert result["checks"] == "failed"
+    assert result["verdict"] == "action needed"
 
 
 @pytest.mark.parametrize("code,state,hook_code", [(0, "passed", 0), (1, "failed", 0), (2, None, 1), (7, None, 1)])

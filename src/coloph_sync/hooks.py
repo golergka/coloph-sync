@@ -42,8 +42,13 @@ def check(config: Config, message_path: Path) -> int:
             "COLOPH_SYNC_MESSAGE": str(message_path.resolve()),
             "COLOPH_SYNC_REQUESTED_STATE": (state or CommitState.PASSED).value,
         }
-        result = run_checked(command, cwd=config.root, env=environment, timeout=config.check_timeout)
-        print(result.stdout, end="", flush=True)
+        result = run_checked(
+            command,
+            cwd=config.root,
+            env=environment,
+            timeout=config.check_timeout,
+            output=lambda line: print(line, end="", flush=True),
+        )
         write_json(local / "coloph-sync-check.json", {"exit_code": result.returncode, "output": result.stdout})
         if result.returncode not in (0, 1):
             return 1

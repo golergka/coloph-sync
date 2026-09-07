@@ -1,6 +1,6 @@
 [project]
 name = "coloph-sync"
-version = "0.1.1"
+version = "0.1.2"
 description = "Commit checks, worktree integration, and deployment coordination for Git projects"
 readme = "README.md"
 license = "GPL-3.0-only"

@@ -9,7 +9,7 @@ Extracted from [Coloph](https://github.com/golergka/coloph), under GPL-3.0-only.
 Install from a release:
 
 ```sh
-uv tool install git+https://github.com/golergka/coloph-sync@v0.1.0
+uv tool install git+https://github.com/golergka/coloph-sync@v0.1.2
 ```
 
 Create `coloph-sync.toml` at the repository root:

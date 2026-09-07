@@ -160,8 +160,8 @@ class Engine:
                                     cwd=self.config.root,
                                     env=environment,
                                     timeout=self.config.merge_timeout,
+                                    output=lambda line: print(line, end="", flush=True),
                                 )
-                                print(result.stdout, end="", flush=True)
                                 result.check_returncode()
                                 if read_state(self.git.message("HEAD")) != CommitState.PASSED:
                                     raise RuntimeError(
