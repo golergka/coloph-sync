@@ -89,6 +89,7 @@ def main(argv=None):
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run")
     run.add_argument("--once", action="store_true")
+    run.add_argument("--branch", help="Restrict integration to one local worktree branch")
     run.add_argument("--push-deploy-only", action="store_true")
     deploy = sub.add_parser("deploy", help="Deploy through the shared coordinator")
     deploy.add_argument("--commit")
@@ -135,6 +136,7 @@ def main(argv=None):
             engine.manual_sha = getattr(args, "commit", None)
             engine.rollback = getattr(args, "rollback", False)
             engine.mode = args.command
+            engine.branch = getattr(args, "branch", None)
             if engine.rollback and not engine.manual_sha:
                 raise ValueError("An explicit rollback requires --commit")
             engine.run(

@@ -9,7 +9,7 @@ Extracted from [Coloph](https://github.com/golergka/coloph), under GPL-3.0-only.
 Install from a release:
 
 ```sh
-uv tool install git+https://github.com/golergka/coloph-sync@v0.1.2
+uv tool install git+https://github.com/golergka/coloph-sync@v0.1.3
 ```
 
 Create `coloph-sync.toml` at the repository root:
@@ -26,6 +26,7 @@ deploy_command = ["./scripts/deploy"]
 Supply real executable check and deployment commands before installation.
 Run `coloph-sync install-hooks`. Existing commit-msg hooks run before the managed hook; uninstall restores them.
 Run `coloph-sync run --once` in the clean main checkout, or `coloph-sync run` for continuous operation.
+Use `run --branch NAME` to restrict integration to one local worktree branch.
 Deployment is required. Remote branches and cloud supervision are outside this release.
 
 Optional configuration: `preflight_command`, `deployed_ref` (default `deployed`), `deploy_tag_prefix` (default `deploy`),

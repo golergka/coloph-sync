@@ -37,6 +37,7 @@ class Engine:
         self.rollback = False
         self.manual_sha = None
         self.mode = "run"
+        self.branch = None
 
     def save(self, phase=None):
         self.report.update(timestamp=now(), sync_run_id=self.run_id)
@@ -111,6 +112,8 @@ class Engine:
         for branch in sorted(self.git.worktrees()):
             if branch == self.config.main_ref:
                 continue
+            if self.branch is not None and branch != self.branch:
+                continue
             target = self.git.out("rev-parse", "HEAD")
             tip = self.git.resolve(branch)
             if tip is None:
@@ -163,7 +166,10 @@ class Engine:
                                     output=lambda line: print(line, end="", flush=True),
                                 )
                                 result.check_returncode()
-                                if read_state(self.git.message("HEAD")) != CommitState.PASSED:
+                                if read_state(self.git.message("HEAD")) not in (
+                                    CommitState.PASSED,
+                                    CommitState.DEPLOY_BARRIER,
+                                ):
                                     raise RuntimeError(
                                         "The merge did not produce a passed commit; install the commit hook and repair before resuming"
                                     )

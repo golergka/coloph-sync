@@ -61,6 +61,34 @@ def test_status_exposes_failed_integration_after_deployment(project):
     assert result["verdict"] == "action needed"
 
 
+def test_terminal_barrier_is_mergeable_after_parent_deploy(project, tmp_path):
+    config, git = project
+    child = tmp_path / "barrier-child"
+    git.out("worktree", "add", "-b", "feature", str(child))
+    branch = Git(child)
+    parent = commit(branch, "before")
+    branch.out("commit", "--allow-empty", "-m", "Boundary\n\nSync-State: deploy-barrier")
+    barrier = branch.out("rev-parse", "HEAD")
+    engine = Engine(config)
+    engine.cycle()
+    assert engine.deployed() == parent
+    engine.cycle()
+    assert engine.deployed() == barrier
+
+
+def test_branch_filter_preserves_other_worktrees(project, tmp_path):
+    config, git = project
+    for name in ("allowed", "excluded"):
+        path = tmp_path / name
+        git.out("worktree", "add", "-b", name, str(path))
+        commit(Git(path), name)
+    engine = Engine(config)
+    engine.branch = "allowed"
+    engine.cycle()
+    assert git.ancestor("allowed", "main")
+    assert not git.ancestor("excluded", "main")
+
+
 @pytest.mark.parametrize("code,state,hook_code", [(0, "passed", 0), (1, "failed", 0), (2, None, 1), (7, None, 1)])
 def test_check_outcomes(project, code, state, hook_code):
     config, git = project
