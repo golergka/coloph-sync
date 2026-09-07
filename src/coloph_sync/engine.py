@@ -47,6 +47,8 @@ class Engine:
 
     def deployed(self):
         delivery = read_json(self.delivery_path)
+        if delivery.get("attempt", {}).get("status") == "completed":
+            return delivery["attempt"]["sha"]
         return delivery.get("deployed_sha") or self.git.resolve(f"refs/tags/{self.config.deployed_ref}")
 
     def command(self, command, context, *, sha=None, attempt=None, timeout=None):
@@ -161,6 +163,10 @@ class Engine:
                                 )
                                 print(result.stdout, end="", flush=True)
                                 result.check_returncode()
+                                if read_state(self.git.message("HEAD")) != CommitState.PASSED:
+                                    raise RuntimeError(
+                                        "The merge did not produce a passed commit; install the commit hook and repair before resuming"
+                                    )
                             if barrier:
                                 reason = f"merged up to {merge_sha[:10]} due to deployment barrier {barrier[0][:10]}; waiting for deployment"
                                 outcome = "partial_merged"
@@ -266,6 +272,8 @@ class Engine:
             raise RuntimeError(f"Run the coordinator on {self.config.main_ref}")
         if self.git.out("status", "--porcelain"):
             raise RuntimeError("The coordinator checkout must be clean")
+        if read_state(self.git.message("HEAD")) not in (CommitState.PASSED, CommitState.DEPLOY_BARRIER):
+            raise RuntimeError("The integration branch must have a checked commit before running")
         if self.config.preflight_command:
             self.save("preflight")
             self.command(self.config.preflight_command, "preflight")

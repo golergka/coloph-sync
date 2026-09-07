@@ -138,6 +138,7 @@ def test_publication_retry_does_not_deploy_twice(project, monkeypatch):
     with pytest.raises(RuntimeError):
         engine.deploy(sha)
     assert read_json(engine.delivery_path)["attempt"]["status"] == "completed"
+    assert engine.deployed() == sha
     monkeypatch.setattr(engine, "publish", publish)
     engine.deploy(sha)
     assert counter.read_text() == "x"
