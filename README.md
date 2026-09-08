@@ -2,7 +2,7 @@
 
 Commit checks, local worktree integration, and deployment coordination for any Git project.
 The utility is written in Python. Projects integrate through commands, not Python imports.
-Extracted from [Coloph](https://github.com/golergka/coloph), under GPL-3.0-only.
+Licensed under GPL-3.0-only.
 
 ## Install and configure
 
@@ -93,6 +93,13 @@ State and logs live in the shared Git directory, so linked worktrees see the sam
 The engine requires a POSIX host, Git, Python 3.12+, and the project's command dependencies.
 
 ## Development
+
+### Public writing
+
+Do not publish links or issue references to private repositories.
+This rule applies to source files, documentation, issues, pull requests, comments, and release notes.
+Explain each problem with a self-contained example, the actual result, the expected result, and the practical impact.
+Separate proposed features from observed defects. Do not present missing tests alone as a defect.
 
 ```sh
 uv sync --group dev
