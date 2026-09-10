@@ -9,7 +9,7 @@ Licensed under GPL-3.0-only.
 Install from a release:
 
 ```sh
-uv tool install git+https://github.com/golergka/coloph-sync@v0.1.4
+uv tool install git+https://github.com/golergka/coloph-sync@v0.1.5
 ```
 
 Create `coloph-sync.toml` at the repository root:
