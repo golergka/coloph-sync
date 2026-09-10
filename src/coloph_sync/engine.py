@@ -117,6 +117,12 @@ class Engine:
             target = self.git.out("rev-parse", "HEAD")
             tip = self.git.resolve(branch)
             if tip is None:
+                entries[branch] = {
+                    **entries.get(branch, {}),
+                    "last_sync_run_id": self.run_id,
+                    "last_merge_attempt": {"at": now(), "outcome": "skipped", "reason": "branch disappeared"},
+                }
+                self.save()
                 continue
             previous = entries.get(branch, {})
             entry = {
