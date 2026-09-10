@@ -96,10 +96,7 @@ The engine requires a POSIX host, Git, Python 3.12+, and the project's command d
 
 ### Public writing
 
-Do not publish links or issue references to private repositories.
-This rule applies to source files, documentation, issues, pull requests, comments, and release notes.
-Explain each problem with a self-contained example, the actual result, the expected result, and the practical impact.
-Separate proposed features from observed defects. Do not present missing tests alone as a defect.
+Read [AGENTS.md](AGENTS.md) for public writing and issue scope rules.
 
 ```sh
 uv sync --group dev
