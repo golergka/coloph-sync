@@ -102,6 +102,34 @@ def test_push_deploy_only_skips_merges_but_runs_integration_check(project, monke
     assert contexts == ["integration"]
 
 
+def test_disappearing_branch_is_reported_and_does_not_stop_other_merges(project, tmp_path, monkeypatch):
+    config, git = project
+    vanished = tmp_path / "vanished"
+    remaining = tmp_path / "remaining"
+    for name, path in (("vanished", vanished), ("remaining", remaining)):
+        git.out("worktree", "add", "-b", name, str(path))
+        commit(Git(path), name)
+    engine = Engine(config)
+    engine.report["branches"] = {"vanished": {"merge_status": "merged", "merge_reason": None}}
+    worktrees = engine.git.worktrees
+
+    def remove_vanished_after_discovery():
+        discovered = worktrees()
+        git.out("worktree", "remove", "--force", str(vanished))
+        git.out("branch", "-D", "vanished")
+        return discovered
+
+    monkeypatch.setattr(engine.git, "worktrees", remove_vanished_after_discovery)
+    engine.merge_in()
+
+    entry = read_json(engine.report_path)["branches"]["vanished"]
+    attempt = entry["last_merge_attempt"]
+    assert attempt["outcome"] == "skipped"
+    assert attempt["reason"] == "branch disappeared"
+    assert entry["merge_status"] == "merged"
+    assert git.ancestor("remaining", "main")
+
+
 @pytest.mark.parametrize("code,state,hook_code", [(0, "passed", 0), (1, "failed", 0), (2, None, 1), (7, None, 1)])
 def test_check_outcomes(project, code, state, hook_code):
     config, git = project
