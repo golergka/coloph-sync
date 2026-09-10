@@ -1,4 +1,4 @@
-"""TOML configuration, following the coloph-migrations configuration layout."""
+"""TOML configuration."""
 
 import tomllib
 from dataclasses import dataclass, fields

@@ -89,6 +89,19 @@ def test_branch_filter_preserves_other_worktrees(project, tmp_path):
     assert not git.ancestor("excluded", "main")
 
 
+def test_push_deploy_only_skips_merges_but_runs_integration_check(project, monkeypatch):
+    config, _ = project
+    engine = Engine(config)
+    contexts = []
+    monkeypatch.setattr(engine, "merge_in", lambda: pytest.fail("merge_in called"))
+    monkeypatch.setattr(engine, "command", lambda command, context, **kwargs: contexts.append(context))
+    monkeypatch.setattr(engine, "deploy", lambda sha: None)
+
+    engine.cycle(push_deploy_only=True)
+
+    assert contexts == ["integration"]
+
+
 @pytest.mark.parametrize("code,state,hook_code", [(0, "passed", 0), (1, "failed", 0), (2, None, 1), (7, None, 1)])
 def test_check_outcomes(project, code, state, hook_code):
     config, git = project
@@ -196,6 +209,19 @@ def test_failed_deploy_reuses_identity_before_new_work(project):
     engine.config = config
     engine.cycle()
     assert read_json(engine.delivery_path)["attempt"]["id"] == attempt
+
+
+def test_pending_deploy_resumes_before_preflight(project, monkeypatch):
+    config, git = project
+    engine = Engine(replace(config, preflight_command=(sys.executable, "-c", "raise SystemExit(2)")))
+    sha = git.out("rev-parse", "HEAD")
+    write_json(engine.delivery_path, {"attempt": {"sha": sha, "status": "running"}})
+    resumed = []
+    monkeypatch.setattr(engine, "deploy", resumed.append)
+
+    engine.cycle()
+
+    assert resumed == [sha]
 
 
 def test_concurrent_publication_does_not_overwrite(project):

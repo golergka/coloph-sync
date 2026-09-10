@@ -1,8 +1,6 @@
-"""Local integration engine adapted from Coloph's sync_test_push.py.
+"""Local integration and deployment engine.
 
-Branch ordering, conflict isolation, deployment barriers, and unchanged-input
-failure caching preserve the original algorithm. Project commands own checks
-and deployment internals.
+Project commands own checks and deployment internals.
 """
 
 import os
@@ -280,15 +278,16 @@ class Engine:
             raise RuntimeError("The coordinator checkout must be clean")
         if read_state(self.git.message("HEAD")) not in (CommitState.PASSED, CommitState.DEPLOY_BARRIER):
             raise RuntimeError("The integration branch must have a checked commit before running")
-        if self.config.preflight_command:
-            self.save("preflight")
-            self.command(self.config.preflight_command, "preflight")
         pending = read_json(self.delivery_path).get("attempt", {})
         if pending and pending["status"] != "published":
             self.deploy(pending["sha"])
             return
-        if not deploy_only and not push_deploy_only:
-            self.merge_in()
+        if self.config.preflight_command:
+            self.save("preflight")
+            self.command(self.config.preflight_command, "preflight")
+        if not deploy_only:
+            if not push_deploy_only:
+                self.merge_in()
             self.save("verify")
             self.report["checks_status"] = "running"
             self.save()

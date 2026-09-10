@@ -1,4 +1,4 @@
-"""Bounded Git operations adapted from Coloph's sync_test_push.py."""
+"""Bounded Git operations."""
 
 import os
 import signal

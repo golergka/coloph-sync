@@ -90,7 +90,7 @@ def main(argv=None):
     run = sub.add_parser("run")
     run.add_argument("--once", action="store_true")
     run.add_argument("--branch", help="Restrict integration to one local worktree branch")
-    run.add_argument("--push-deploy-only", action="store_true")
+    run.add_argument("--push-deploy-only", action="store_true", help="Skip merges, then check, push, and deploy main")
     deploy = sub.add_parser("deploy", help="Deploy through the shared coordinator")
     deploy.add_argument("--commit")
     deploy.add_argument("--rollback", action="store_true", help="Explicit operator recovery; never used by the loop")
