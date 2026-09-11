@@ -9,18 +9,18 @@ Licensed under GPL-3.0-only.
 Python projects can pin the CLI as a development dependency and commit the updated project file and lockfile:
 
 ```sh
-uv add --dev 'coloph-sync==0.3.0'
+uv add --dev 'coloph-sync==0.3.1'
 uv run coloph-sync init
 ```
 
 Other projects can install the same fixed version as an isolated tool:
 
 ```sh
-uv tool install 'coloph-sync==0.3.0'
+uv tool install 'coloph-sync==0.3.1'
 coloph-sync init
 ```
 
-To run a fixed version without installing it, use `uvx --from 'coloph-sync==0.3.0' coloph-sync`.
+To run a fixed version without installing it, use `uvx --from 'coloph-sync==0.3.1' coloph-sync`.
 The CLI is implemented in Python, but host projects integrate through executable commands and can use any language.
 
 `init` installs the three agent workflows under `skills/` and creates `coloph-sync.toml` if absent:
