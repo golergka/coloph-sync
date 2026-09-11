@@ -3,7 +3,13 @@ name: sync-contributor
 description: Work on any task that changes version-controlled files in a repository managed by the sync coordinator, including committing work, repairing a failed check, or resolving an integration conflict. Use sync-finish for end-to-end closeout.
 ---
 
-Work only in the current worktree and branch. Never inspect another worktree or the integration checkout.
+Before editing, determine whether the current checkout is the checkout where the sync coordinator runs.
+That checkout is reserved for merging branches, running checks, and delivery.
+A feature or bug-fix request does not authorize contributor edits there.
+If asked to make such a change there, explain its role and ask the user to assign the task to a contributor checkout.
+Proceed there only if the user explicitly authorizes contributor edits in that checkout.
+
+Work only in the current worktree and branch. Never inspect another worktree.
 Do not create another worktree or switch branches unless the user explicitly requests that operation.
 If the provided worktree is detached, create a descriptive `codex/` branch at the current HEAD. This is the only automatic branch operation.
 Setting a tool's working directory outside the current worktree does not bypass this boundary.

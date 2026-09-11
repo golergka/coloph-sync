@@ -3,7 +3,11 @@ name: sync-operator
 description: Start, stop, inspect, or recover the sync coordinator. Use only when assigned to operate the designated integration checkout; contributors use sync-contributor or sync-finish.
 ---
 
-Operate only the designated integration checkout with repository authorization.
+Operate only the checkout where the sync coordinator runs, with repository authorization.
+That checkout is reserved for merging branches, running checks, and delivery.
+A feature or bug-fix request does not authorize contributor edits there.
+If asked to make such a change there, explain its role and ask the user to assign the task to a contributor checkout.
+Proceed there only if the user explicitly authorizes contributor edits in that checkout; then use `sync-contributor`.
 Starting or resuming the coordinator requires explicit current user authorization. Past authorization does not carry forward.
 Contributor worktrees belong to their assigned agents. Never inspect, modify, enter, or operate their files or processes.
 Use branch refs, coordinator status, and merge results to integrate their work. A conflict belongs to the worktree owner.
