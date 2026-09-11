@@ -8,12 +8,15 @@ import signal
 import subprocess
 import time
 import uuid
+from collections import deque
 from datetime import UTC, datetime
 
 from .config import Config
 from .git import Git, run_checked
 from .state import CommitState, read_state
 from .storage import lock, read_json, write_json
+
+OUTPUT_TAIL_LIMIT = 4096
 
 
 def now():
@@ -65,15 +68,43 @@ class Engine:
         with log.open("a") as stream:
             stream.write(f"\n[{now()}] {context}\n")
             stream.flush()
+            tail = deque(maxlen=OUTPUT_TAIL_LIMIT)
+            live_output = 0
+            truncated = False
+            ended_with_newline = True
 
             def output(line):
+                nonlocal live_output, truncated, ended_with_newline
                 stream.write(line)
                 stream.flush()
-                print(line, end="", flush=True)
+                tail.extend(line)
+                if truncated:
+                    return
+                remaining = self.config.live_output_limit - live_output
+                visible = line[:remaining]
+                if visible:
+                    print(visible, end="", flush=True)
+                    live_output += len(visible)
+                    ended_with_newline = visible.endswith("\n")
+                if len(visible) == len(line):
+                    return
+                truncated = True
+                if not ended_with_newline:
+                    print()
+                print(
+                    f"Live output truncated after {self.config.live_output_limit} characters. Full log: {log}",
+                    flush=True,
+                )
 
-            result = run_checked(
-                command, cwd=self.config.root, env=env, timeout=timeout or self.config.check_timeout, output=output
-            )
+            try:
+                result = run_checked(
+                    command, cwd=self.config.root, env=env, timeout=timeout or self.config.check_timeout, output=output
+                )
+            finally:
+                if truncated:
+                    final_tail = "".join(tail)
+                    print("Final output tail:")
+                    print(final_tail, end="" if final_tail.endswith("\n") else "\n", flush=True)
         result.check_returncode()
 
     def barrier(self, branch, deployed):
