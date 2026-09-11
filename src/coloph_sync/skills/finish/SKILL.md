@@ -1,9 +1,9 @@
 ---
-name: coloph-sync-finish
-description: Finish implemented work end to end in a repository managed by coloph-sync. Use after branch work to own repair, integration, delivery validation, and complete closeout.
+name: sync-finish
+description: Finish implemented work end to end in a repository managed by the sync coordinator. Use after branch work to own repair, integration, delivery validation, and complete closeout.
 ---
 
-# Finish coloph-sync work
+# Finish synchronized work
 
 Start from the original request and the work performed in this task. The goal is to make the current branch merged into the configured main branch, delivered through the project's deployment command, and validated through the closest real user or operator path.
 
@@ -12,12 +12,16 @@ Keep closeout scoped to this branch's work. The latest user instructions and act
 ## Non-negotiable rules
 
 - Start every closeout turn and reminder wakeup by loading this skill from the beginning.
+- Work only in the current worktree and branch. Never inspect another worktree or the integration checkout.
+- Do not create another worktree or switch branches unless the user explicitly requests that operation.
+- If the provided worktree is detached, create a descriptive `codex/` branch at its current HEAD. This is the only automatic branch operation.
+- Setting a tool's working directory outside the current worktree does not bypass this boundary. Approval for one worktree does not grant access to another worktree.
+- Saving work means creating a commit. A WIP or failed checkpoint must have an ordinary passed successor before closeout.
 - Run `uv run coloph-sync status` as the sole routine merge and deployment status check. Use its branch, tip, checks, phase, reason, merged, and deployed fields directly. Do not reconstruct or second-guess routine status with Git containment, tags, process inspection, or coordinator logs.
 - Do not report completion while work is only locally clean or checks have only passed. Wait for both `Merged: yes` and `Deployed: yes` unless the user explicitly stops waiting.
 - Do not operate or diagnose the coordinator from this skill. The operator workflow owns the designated integration checkout and coordinator process.
-- A repairable failure is not a reporting boundary. Follow `coloph-sync-contributor`, repair and commit the branch in the same turn, then restart this workflow. Stop only when repair requires new user authority or unavailable external input.
+- A repairable failure is not a reporting boundary. Follow `sync-contributor`, repair and commit the branch in the same turn, then restart this workflow. Stop only when repair requires new user authority or unavailable external input.
 - If the branch tip changes unexpectedly, investigate and repair that problem. Do not select or continue tracking an older commit.
-- If the worktree is detached, create a descriptive `codex/` branch at its current HEAD and continue. Do not switch an attached worktree or create another worktree without an explicit request.
 - If HEAD is an intentional `wip` checkpoint, create a normal checked commit after completing the work. Do not treat WIP state as a user-confirmation boundary.
 - Report only this work's merge, deployment, and delivered-validation state. Keep hashes and internal deployment details out unless they explain a blocker.
 
@@ -31,8 +35,8 @@ uv run coloph-sync status
 
 Then act on the current result:
 
-- If checks failed or status reports `action needed`, repair the stated problem now through `coloph-sync-contributor`, then return here.
-- If a merge failed, timed out, or the branch needs the current main branch for conflict resolution or validation, follow the repository's merge procedure through `coloph-sync-contributor`, then return here.
+- If checks failed or status reports `action needed`, repair the stated problem now through `sync-contributor`, then return here.
+- If a merge failed, timed out, or the branch needs the current main branch for conflict resolution or validation, follow the repository's merge procedure through `sync-contributor`, then return here.
 - If the coordinator has not observed the current branch tip, keep waiting. This is ordinary pickup delay.
 - If the last merge attempt was skipped or unchanged and `Merged: no`, stop waiting, repair the stated branch problem, then restart this workflow.
 - If the coordinator reports an error while the branch is not both merged and deployed, stop passive waiting and report the recorded phase and error. Do not operate the coordinator.

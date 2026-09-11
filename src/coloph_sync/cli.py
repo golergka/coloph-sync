@@ -4,7 +4,6 @@ import argparse
 import json
 import subprocess
 import sys
-import time
 from importlib.resources import files
 from pathlib import Path
 
@@ -15,7 +14,10 @@ from .state import CommitState, read_state
 from .storage import read_json, write_json
 
 SKILLS = ("contributor", "operator", "finish")
-CONFIG_TEMPLATE = """main_ref = "main"
+CONFIG_TEMPLATE = """# Coloph-sync owns commit checks, integration, and calls to the deployment command.
+# This project owns the commands, release policy, deployment service, and success criteria.
+# A package can publish only after a version change. A continuously deployed app can deploy every integrated commit.
+main_ref = "main"
 remote = "origin"
 commit_check = ["./scripts/check", "commit"]
 merge_check = ["./scripts/check", "merge"]
@@ -26,7 +28,7 @@ deploy_command = ["./scripts/deploy"]
 
 def _skill_files(root: Path):
     return {
-        root / ".agents" / "skills" / f"coloph-sync-{name}" / "SKILL.md": files("coloph_sync")
+        root / ".agents" / "skills" / f"sync-{name}" / "SKILL.md": files("coloph_sync")
         .joinpath("skills", name, "SKILL.md")
         .read_text(encoding="utf-8")
         for name in SKILLS
@@ -36,6 +38,14 @@ def _skill_files(root: Path):
 def install_skills(root: Path):
     skill_files = _skill_files(root)
     created = []
+    for name in SKILLS:
+        legacy = root / ".agents" / "skills" / f"coloph-sync-{name}" / "SKILL.md"
+        if legacy.exists():
+            legacy.unlink()
+            try:
+                legacy.parent.rmdir()
+            except OSError:
+                pass
     for path, content in skill_files.items():
         if not path.exists() or path.read_text(encoding="utf-8") != content:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -159,12 +169,9 @@ def main(argv=None):
     state.add_argument("ref", nargs="?", default="HEAD")
     skill = sub.add_parser("skill", help="Print the bundled operating instructions")
     skill.add_argument("name", choices=SKILLS)
-    for name in ("status", "wait"):
-        p = sub.add_parser(name)
-        p.add_argument("--branch")
-        p.add_argument("--all", action="store_true")
-        p.add_argument("--until", choices=["merged", "deployed"], default="deployed")
-        p.add_argument("--timeout", type=int, default=14400)
+    status_parser = sub.add_parser("status")
+    status_parser.add_argument("--branch")
+    status_parser.add_argument("--all", action="store_true")
     args = parser.parse_args(argv)
     try:
         if args.command == "init":
@@ -178,7 +185,8 @@ def main(argv=None):
                     print(f"Created {path.relative_to(root)}")
                 if not created:
                     print("Project files are already initialized")
-                print("Install hooks after configuring real project commands: uv run coloph-sync install-hooks")
+                print("Choose a delivery pattern and configure project commands before installing hooks")
+                print("Then run: uv run coloph-sync install-hooks")
             return 0
         root = args.config.resolve().parent if args.config else Path.cwd()
         if args.command == "install-skills":
@@ -234,26 +242,17 @@ def main(argv=None):
             value = read_state(engine.git.message(args.ref))
             print(value.value if value else "unmarked")
         else:
-            deadline = time.monotonic() + args.timeout
-            while True:
-                branches = (
-                    engine.git.out("for-each-ref", "--format=%(refname:short)", "refs/heads/").splitlines()
-                    if args.all
-                    else [args.branch]
-                )
-                values = [status(engine, branch) for branch in branches]
-                if args.json:
-                    print(json.dumps(values if args.all else values[0]))
-                else:
-                    for value in values:
-                        render(value)
-                if args.command != "wait" or all(value[args.until] for value in values):
-                    return 0
-                if any(value["verdict"] == "action needed" for value in values):
-                    return 1
-                if time.monotonic() >= deadline:
-                    return 1
-                time.sleep(min(5, max(0, deadline - time.monotonic())))
+            branches = (
+                engine.git.out("for-each-ref", "--format=%(refname:short)", "refs/heads/").splitlines()
+                if args.all
+                else [args.branch]
+            )
+            values = [status(engine, branch) for branch in branches]
+            if args.json:
+                print(json.dumps(values if args.all else values[0]))
+            else:
+                for value in values:
+                    render(value)
         return 0
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as exc:
         print(str(exc), file=sys.stderr)

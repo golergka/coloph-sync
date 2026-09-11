@@ -1,0 +1,33 @@
+#!/bin/sh
+set -eu
+
+: "${COLOPH_SYNC_COMMIT:?}"
+: "${COLOPH_SYNC_ATTEMPT_ID:?}"
+: "${HOST_API_URL:?}"
+: "${HOST_API_TOKEN:?}"
+
+deployment="$HOST_API_URL/deployments/$COLOPH_SYNC_ATTEMPT_ID"
+authorization="Authorization: Bearer $HOST_API_TOKEN"
+
+curl --fail --silent --show-error \
+  -X PUT \
+  -H "$authorization" \
+  -H "Content-Type: application/json" \
+  --data "{\"commit\":\"$COLOPH_SYNC_COMMIT\"}" \
+  "$deployment"
+
+while :; do
+  result=$(curl --fail --silent --show-error -H "$authorization" "$deployment")
+  status=$(python3 -c '
+import json, os, sys
+result = json.load(sys.stdin)
+if result.get("commit") != os.environ["COLOPH_SYNC_COMMIT"]:
+    raise SystemExit("hosting service returned a different commit")
+print(result.get("status", ""))
+' <<EOF
+$result
+EOF
+  )
+  [ "$status" = live ] && exit 0
+  sleep 5
+done
