@@ -170,20 +170,26 @@ def test_installer_preserves_existing_hook(project):
 def test_skill_install_is_repeatable_and_updates_stale_files(tmp_path):
     created = install_skills(tmp_path)
     assert {path.parent.name for path in created} == {
-        "coloph-sync-contributor",
-        "coloph-sync-finish",
-        "coloph-sync-operator",
+        "sync-contributor",
+        "sync-finish",
+        "sync-operator",
     }
     assert install_skills(tmp_path) == []
 
     conflict_root = tmp_path / "conflict"
-    conflict = conflict_root / ".agents" / "skills" / "coloph-sync-finish" / "SKILL.md"
+    conflict = conflict_root / ".agents" / "skills" / "sync-finish" / "SKILL.md"
     conflict.parent.mkdir(parents=True)
     conflict.write_text("Host workflow\n")
     updated = install_skills(conflict_root)
     assert conflict in updated
     assert len(updated) == 3
     assert conflict.read_text() != "Host workflow\n"
+
+    legacy = tmp_path / ".agents" / "skills" / "coloph-sync-finish" / "SKILL.md"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text("Old workflow\n")
+    install_skills(tmp_path)
+    assert not legacy.parent.exists()
 
 
 def test_skill_check_rejects_missing_and_stale_skills(tmp_path):
@@ -192,7 +198,7 @@ def test_skill_check_rejects_missing_and_stale_skills(tmp_path):
 
     install_skills(tmp_path)
     check_skills(tmp_path)
-    (tmp_path / ".agents" / "skills" / "coloph-sync-finish" / "SKILL.md").write_text("stale\n")
+    (tmp_path / ".agents" / "skills" / "sync-finish" / "SKILL.md").write_text("stale\n")
 
     with pytest.raises(ValueError, match="skills are missing or out of date"):
         check_skills(tmp_path)
@@ -210,7 +216,7 @@ def test_init_creates_config_and_skills_without_installing_hooks(tmp_path, monke
 
 
 def test_init_rejects_skill_conflict_before_creating_config(tmp_path):
-    conflict = tmp_path / ".agents" / "skills" / "coloph-sync-operator" / "SKILL.md"
+    conflict = tmp_path / ".agents" / "skills" / "sync-operator" / "SKILL.md"
     conflict.parent.mkdir(parents=True)
     conflict.write_text("Host workflow\n")
     with pytest.raises(ValueError, match="Skill file differs"):

@@ -28,7 +28,7 @@ deploy_command = ["./scripts/deploy"]
 
 def _skill_files(root: Path):
     return {
-        root / ".agents" / "skills" / f"coloph-sync-{name}" / "SKILL.md": files("coloph_sync")
+        root / ".agents" / "skills" / f"sync-{name}" / "SKILL.md": files("coloph_sync")
         .joinpath("skills", name, "SKILL.md")
         .read_text(encoding="utf-8")
         for name in SKILLS
@@ -38,6 +38,14 @@ def _skill_files(root: Path):
 def install_skills(root: Path):
     skill_files = _skill_files(root)
     created = []
+    for name in SKILLS:
+        legacy = root / ".agents" / "skills" / f"coloph-sync-{name}" / "SKILL.md"
+        if legacy.exists():
+            legacy.unlink()
+            try:
+                legacy.parent.rmdir()
+            except OSError:
+                pass
     for path, content in skill_files.items():
         if not path.exists() or path.read_text(encoding="utf-8") != content:
             path.parent.mkdir(parents=True, exist_ok=True)

@@ -1,6 +1,6 @@
 ---
-name: coloph-sync-finish
-description: Finish an implemented change end to end in a repository managed by coloph-sync. Use for closeout after branch work; it owns waiting, delivery confirmation, manual test guidance, and remaining-scope review.
+name: sync-finish
+description: Finish an implemented change end to end in a repository managed by the sync coordinator. Use for closeout after branch work; it owns waiting, delivery confirmation, manual test guidance, and remaining-scope review.
 ---
 
 Start from the original request in this chat and the work you directly performed. Identify every requested outcome before checking delivery.
@@ -14,7 +14,7 @@ Saving work means creating a commit. A WIP or failed checkpoint must have an ord
 Do not operate the coordinator from this workflow.
 
 Run `uv run coloph-sync status` for the current branch, or select the intended commit explicitly. Distinguish integrated from delivered. A successful local commit is not completed work.
-Repair actionable branch failures through `coloph-sync-contributor`, then return here. If the coordinator has not checked the repaired tip, wait; do not treat the older failure as current.
+Repair actionable branch failures through `sync-contributor`, then return here. If the coordinator has not checked the repaired tip, wait; do not treat the older failure as current.
 
 Use a sparse host reminder when integration or delivery is pending. Check once per wakeup and stay quiet while the state is unchanged. Stop the reminder when delivery completes, waiting expires, or work is blocked. Expiry ends passive waiting; it does not cancel an already authorized repair.
 

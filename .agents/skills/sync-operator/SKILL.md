@@ -1,6 +1,6 @@
 ---
-name: coloph-sync-operator
-description: Start, stop, inspect, or recover the coloph-sync coordinator. Use only when assigned to operate the designated integration checkout; contributors use coloph-sync-contributor or coloph-sync-finish.
+name: sync-operator
+description: Start, stop, inspect, or recover the sync coordinator. Use only when assigned to operate the designated integration checkout; contributors use sync-contributor or sync-finish.
 ---
 
 Operate only the designated integration checkout with repository authorization.

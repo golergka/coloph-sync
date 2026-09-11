@@ -156,6 +156,7 @@ uv run coloph-sync skill finish
 ```
 
 The installed skill descriptions tell agents when to use contributor, operator, and finish workflows.
+Their installed names are `sync-contributor`, `sync-operator`, and `sync-finish`.
 Keep project-specific checks, delivery implementation, reviewers, and manual validation procedures in the project.
 Stop drains the current cycle. SIGTERM also drains. A forced interruption cannot cancel remote deployment work reliably.
 State and logs live in the shared Git directory, so linked worktrees see the same results.

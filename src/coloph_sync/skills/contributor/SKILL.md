@@ -1,6 +1,6 @@
 ---
-name: coloph-sync-contributor
-description: Work on any task that changes version-controlled files in a repository managed by coloph-sync, including committing work, repairing a failed check, or resolving an integration conflict. Use coloph-sync-finish for end-to-end closeout.
+name: sync-contributor
+description: Work on any task that changes version-controlled files in a repository managed by the sync coordinator, including committing work, repairing a failed check, or resolving an integration conflict. Use sync-finish for end-to-end closeout.
 ---
 
 Work only in the current worktree and branch. Never inspect another worktree or the integration checkout.
