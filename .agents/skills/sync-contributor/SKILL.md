@@ -18,7 +18,7 @@ Approval for one worktree does not grant access to another worktree.
 Never force-push or use `git reset --hard`. Destructive cleanup requires explicit current user approval.
 Read the repository's check and Git instructions.
 
-Saving work means creating a commit. Finish with an ordinary passed commit; a WIP or failed checkpoint is not finished work.
+Saving work means creating a commit. Finish with an ordinary passed commit; a WIP or failed checkpoint is not finished work. The reviewed `dont-merge` scaffold required by `sync-merge-main` is the exception when main must be integrated before the branch can pass.
 The commit-msg hook owns check results. An ordinary commit needs no input marker.
 Never copy a passed marker to avoid checks. The hook always checks ordinary commits.
 
@@ -33,7 +33,7 @@ A rejected hook does not create a commit. Repair the stated error and retry.
 Do not bypass the hook or rewrite check results.
 
 Read `uv run coloph-sync status`. A conflict belongs to the branch owner.
-Follow the repository's Git procedure to integrate its local integration branch. Read both sides from their shared parent, preserve both intended behaviors, resolve the conflict, and run the relevant checks. Use a real merge; do not rebase or recreate selected changes.
+Load `sync-merge-main` and follow it completely to integrate the configured local main branch. Read both sides from their shared parent, preserve both intended behaviors, resolve the conflict, and run the relevant checks. Use a real merge; do not rebase or recreate selected changes.
 Do not operate the coordinator while repairing your branch.
 The coordinator attempts merges; it does not resolve conflicts or write repairs.
 If the finish workflow sent you here, return to it after the repair commit.
