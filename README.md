@@ -73,7 +73,9 @@ The project owner supplies these parts:
 - Credentials, infrastructure access, and the definition of delivery success.
 
 Optional configuration: `preflight_command`, `deployed_ref` (default `deployed`), `deploy_tag_prefix` (default `deploy`),
-`check_timeout` and `deploy_timeout` (14400 seconds), `merge_timeout` (1500 seconds), and `interval` (60 seconds).
+`check_timeout` and `deploy_timeout` (14400 seconds), `merge_timeout` (1500 seconds), `interval` (60 seconds), and
+`live_output_limit` (65536 characters). When a project command exceeds `live_output_limit`, coloph-sync continues to
+write its complete output to the run log, prints the log path once, and prints the final 4096 characters when it ends.
 Missing merge or integration commands use `commit_check`.
 `coloph-sync.local.toml` overrides local configuration. Unknown keys fail. `--config PATH` selects another root.
 Secrets belong in the command environment, not the checked-in configuration.

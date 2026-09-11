@@ -21,6 +21,7 @@ class Config:
     deploy_timeout: int = 14400
     merge_timeout: int = 1500
     interval: int = 60
+    live_output_limit: int = 65536
 
 
 def load_config(path: Path | None = None) -> Config:
@@ -42,7 +43,7 @@ def load_config(path: Path | None = None) -> Config:
         if name in ("commit_check", "deploy_command") and not value:
             raise ValueError(f"{name} is required")
         raw[name] = tuple(value)
-    for name in ("check_timeout", "deploy_timeout", "merge_timeout", "interval"):
+    for name in ("check_timeout", "deploy_timeout", "merge_timeout", "interval", "live_output_limit"):
         if name in raw and (type(raw[name]) is not int or raw[name] <= 0):
             raise ValueError(f"{name} must be a positive integer")
     for name in ("main_ref", "remote", "deployed_ref", "deploy_tag_prefix"):

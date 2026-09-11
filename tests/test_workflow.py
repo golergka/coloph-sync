@@ -338,6 +338,31 @@ def test_config_requires_deployment(tmp_path):
         load_config(path)
 
 
+def test_config_requires_positive_live_output_limit(tmp_path):
+    path = tmp_path / "coloph-sync.toml"
+    path.write_text('commit_check = ["true"]\ndeploy_command = ["true"]\nlive_output_limit = 0\n')
+
+    with pytest.raises(ValueError, match="live_output_limit"):
+        load_config(path)
+
+
+def test_command_bounds_live_output_and_keeps_complete_log(project, capsys):
+    config, git = project
+    command = (sys.executable, "-c", "print('first'); print('second'); print('third')")
+    engine = Engine(replace(config, live_output_limit=8))
+
+    engine.command(command, "integration")
+
+    log = git.common_dir() / f"coloph-sync-{engine.run_id}.log"
+    output = capsys.readouterr().out
+    assert output.startswith(
+        f"first\nse\nLive output truncated after 8 characters. Full log: {log}\nFinal output tail:\n"
+    )
+    assert output.endswith("first\nsecond\nthird\n")
+    assert output.count("Live output truncated") == 1
+    assert log.read_text().endswith("first\nsecond\nthird\n")
+
+
 def test_stop_drains_owned_cycle(project, monkeypatch):
     config, git = project
     engine = Engine(config)
