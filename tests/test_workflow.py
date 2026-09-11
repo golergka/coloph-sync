@@ -2,6 +2,7 @@ import json
 import subprocess
 import sys
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -197,12 +198,26 @@ def test_skill_check_rejects_missing_and_stale_skills(tmp_path):
     with pytest.raises(ValueError, match="skills are missing or out of date"):
         check_skills(tmp_path)
 
+
     install_skills(tmp_path)
     check_skills(tmp_path)
     (tmp_path / ".agents" / "skills" / "sync-finish" / "SKILL.md").write_text("stale\n")
 
     with pytest.raises(ValueError, match="skills are missing or out of date"):
         check_skills(tmp_path)
+
+
+def test_skill_lifecycle_has_required_handoffs():
+    root = Path(__file__).parents[1] / "src" / "coloph_sync" / "skills"
+    contributor = (root / "contributor" / "SKILL.md").read_text()
+    finish = (root / "finish" / "SKILL.md").read_text()
+    merge_main = (root / "merge-main" / "SKILL.md").read_text()
+
+    assert "immediately use `sync-finish` in the same turn" in contributor
+    assert "Do not give a final user handoff from this workflow" in contributor
+    assert "Do not give a final handoff while the reminder is active" in finish
+    assert "Return to `sync-finish` in the same turn" in merge_main
+    assert (root / "merge-main" / "references" / "conflict-review.md").exists()
 
 
 def test_init_creates_config_and_skills_without_installing_hooks(tmp_path, monkeypatch, capsys):
