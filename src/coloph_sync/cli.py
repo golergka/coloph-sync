@@ -173,7 +173,6 @@ def main(argv=None):
                     print(f"Created {path.relative_to(root)}")
                 if not created:
                     print("Project files are already initialized")
-                print("Use only the worktree assigned by the user or agent host; agents must not create worktrees")
                 print("Choose a delivery pattern and configure project commands before installing hooks")
                 print("Then run: coloph-sync install-hooks")
             return 0
