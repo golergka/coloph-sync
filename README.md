@@ -9,7 +9,7 @@ Licensed under GPL-3.0-only.
 Add the CLI to the repository's development dependencies and commit the updated project file and lockfile:
 
 ```sh
-uv add --dev 'coloph-sync==0.3.2'
+uv add --dev coloph-sync
 uv run coloph-sync init
 ```
 
@@ -43,37 +43,15 @@ Every other CLI command first compares these three small files with the installe
 Run `uv run coloph-sync run --once` in the clean main checkout, or `uv run coloph-sync run` for continuous operation.
 Use `run --branch NAME` to restrict integration to one local worktree branch.
 Use `run --push-deploy-only` to skip branch merges, run the integration check, push main, and deploy it.
+A repository adopted after feature work has begun can merge its active worktree branches with `uv run coloph-sync adopt --all`.
+It runs the normal merge check for each branch, preserves its existing commits, and records each successful adoption in the shared Git directory.
+Branches that conflict or fail their merge check remain unadopted; later commits still require valid `Sync-State` metadata.
 A delivery command is required. Remote branches and cloud supervision are outside this release.
 
-## Usage patterns
-
-Different projects can use the same sync loop with different delivery policies.
-Coloph-sync coordinates the loop. The project commands define what a successful check and delivery mean.
-
-This repository is a versioned-package example. It uses deliberate semantic versions and does not publish every commit.
-Its deployment command publishes only when `pyproject.toml` contains a new version.
-For other commits, the command verifies `origin/main` and the existing package release.
-
-A continuously deployed web app can deploy every integrated commit instead.
-The [example project](example/README.md) shows this pattern with a deployment command that waits for a hosting service.
-The service must report the exact commit as live before the command succeeds.
-
-Coloph-sync owns these tasks:
-
-- Run the project commands at the configured stages.
-- Integrate eligible local worktree branches into the main branch.
-- Push the main branch and coordinate one delivery attempt at a time.
-- Record results and publish its coordination tags.
-
-The project owner supplies these parts:
-
-- Checks for commits, merges, and the integrated main branch.
-- The release or deployment policy.
-- An idempotent deployment command that reconciles retries.
-- Credentials, infrastructure access, and the definition of delivery success.
-
 Optional configuration: `preflight_command`, `deployed_ref` (default `deployed`), `deploy_tag_prefix` (default `deploy`),
-`check_timeout` and `deploy_timeout` (14400 seconds), `merge_timeout` (1500 seconds), and `interval` (60 seconds).
+`check_timeout` and `deploy_timeout` (14400 seconds), `merge_timeout` (1500 seconds), `interval` (60 seconds), and
+`live_output_limit` (65536 characters). When a project command exceeds `live_output_limit`, coloph-sync continues to
+write its complete output to the run log, prints the log path once, and prints the final 4096 characters when it ends.
 Missing merge or integration commands use `commit_check`.
 `coloph-sync.local.toml` overrides local configuration. Unknown keys fail. `--config PATH` selects another root.
 Secrets belong in the command environment, not the checked-in configuration.
@@ -111,8 +89,10 @@ WIP and failed tips cannot be used as the starting point of a merge.
 A checked scaffold permits a subsequent merge but cannot be integrated at that tip.
 Older failed checkpoints do not block a later passed tip. All incoming commits must carry valid state metadata.
 Fast-forward merges retain the original commit and its state; the integration check still checks the combined checkout.
+`adopt` is the sole exception for legacy branches: it makes a checked merge commit after the normal merge check succeeds, preserving the older commit hashes.
 
 The engine discovers local worktrees, sorts their branches, and attempts ordinary Git merges.
+It skips a branch while its linked worktree is dirty and reports `worktree is dirty`; clean the worktree before the next cycle.
 It skips blocked tips and isolates merge conflicts. Metadata failures retry after the branch changes.
 Conflicts retry after either the branch or target changes. Timeouts retry on the next cycle.
 At a deployment barrier, only its parent can merge until that parent has completed deployment.
@@ -145,11 +125,12 @@ The deployment command owns whether that recovery is safe. Normal runs never sel
 
 ```sh
 uv run coloph-sync status
-uv run coloph-sync --json status --commit <sha>
+uv run coloph-sync --json status
 uv run coloph-sync stop
 uv run coloph-sync logs
 uv run coloph-sync init
 uv run coloph-sync install-skills
+uv run coloph-sync adopt --all
 uv run coloph-sync skill contributor
 uv run coloph-sync skill merge-main
 uv run coloph-sync skill operator

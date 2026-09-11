@@ -7,8 +7,10 @@ import sys
 from importlib.resources import files
 from pathlib import Path
 
+from .adoption import adopt, candidates, hint
 from .config import load_config
 from .engine import Engine
+from .git import Git
 from .hooks import check, install, uninstall
 from .state import CommitState, read_state
 from .storage import read_json, write_json
@@ -77,10 +79,10 @@ def initialize(config: Path):
     return created
 
 
-def status(engine, branch=None, commit=None):
+def status(engine, branch=None):
     git = engine.git
     branch = branch or git.out("branch", "--show-current")
-    sha = git.resolve(commit or branch)
+    sha = git.resolve(branch)
     if not sha:
         raise ValueError("Specify an existing branch or commit")
     report = read_json(engine.report_path)
@@ -157,6 +159,10 @@ def main(argv=None):
     deploy = sub.add_parser("deploy", help="Deploy through the shared coordinator")
     deploy.add_argument("--commit")
     deploy.add_argument("--rollback", action="store_true", help="Explicit operator recovery; never used by the loop")
+    adopt_parser = sub.add_parser("adopt", help="Check and integrate branches created before coloph-sync")
+    adopt_group = adopt_parser.add_mutually_exclusive_group(required=True)
+    adopt_group.add_argument("--branch")
+    adopt_group.add_argument("--all", action="store_true")
     sub.add_parser("stop", help="Drain the current cycle and prevent the next cycle")
     sub.add_parser("logs")
     sub.add_parser("install-skills", help="Install agent workflows in the host project")
@@ -171,7 +177,6 @@ def main(argv=None):
     skill.add_argument("name", choices=SKILLS)
     status_parser = sub.add_parser("status")
     status_parser.add_argument("--branch")
-    status_parser.add_argument("--commit")
     status_parser.add_argument("--all", action="store_true")
     args = parser.parse_args(argv)
     try:
@@ -180,7 +185,14 @@ def main(argv=None):
             root = config.parent
             created = initialize(config)
             if args.json:
-                print(json.dumps({"created": [str(path.relative_to(root)) for path in created]}))
+                print(
+                    json.dumps(
+                        {
+                            "created": [str(path.relative_to(root)) for path in created],
+                            "adoption_candidates": candidates(Git(root), "main") if (root / ".git").exists() else [],
+                        }
+                    )
+                )
             else:
                 for path in created:
                     print(f"Created {path.relative_to(root)}")
@@ -188,6 +200,10 @@ def main(argv=None):
                     print("Project files are already initialized")
                 print("Choose a delivery pattern and configure project commands before installing hooks")
                 print("Then run: uv run coloph-sync install-hooks")
+                if (root / ".git").exists():
+                    message = hint(Git(root), "main")
+                    if message:
+                        print(message)
             return 0
         root = args.config.resolve().parent if args.config else Path.cwd()
         if args.command == "install-skills":
@@ -212,11 +228,23 @@ def main(argv=None):
         if args.command == "install-hooks":
             install(config)
             print("Installed commit-msg hook. Run: uv run coloph-sync init to install the agent workflows")
+            message = hint(Git(root), config.main_ref)
+            if message:
+                print(message)
             return 0
         if args.command == "uninstall-hooks":
             uninstall(config)
             return 0
         engine = Engine(config)
+        if args.command == "adopt":
+            branches = candidates(engine.git, config.main_ref) if args.all else [args.branch]
+            if not branches:
+                print("No active worktree branches need adoption")
+                return 0
+            results = adopt(config, branches)
+            for branch, error in results:
+                print(f"Not adopted {branch}: {error}" if error else f"Adopted {branch}")
+            return 2 if any(error for _, error in results) else 0
         if args.command in ("run", "deploy"):
             engine.manual_sha = getattr(args, "commit", None)
             engine.rollback = getattr(args, "rollback", False)
@@ -249,7 +277,7 @@ def main(argv=None):
                 if args.all
                 else [args.branch]
             )
-            values = [status(engine, branch, args.commit) for branch in branches]
+            values = [status(engine, branch) for branch in branches]
             if args.json:
                 print(json.dumps(values if args.all else values[0]))
             else:
