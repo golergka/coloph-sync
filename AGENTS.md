@@ -15,6 +15,10 @@ Public explanations must stand alone without private project context.
 
 Before a release, run `uv lock --check`, `uv run pytest -q`, `uv run ruff check .`, and `python scripts/release.py build --tag vX.Y.Z`.
 Release tags must match the package version and are immutable.
+Use `MAJOR.MINOR.PATCH` versions. Increase MAJOR for incompatible interfaces, configuration, state, or hook behavior.
+Increase MINOR for backward-compatible features. Increase PATCH for backward-compatible fixes.
+A version change requests a release. Ordinary commits keep the current version and do not publish a package.
+The deployment command publishes the declared version. It only verifies `origin/main` when that version is already published.
 
 Shadow mode and cross-machine handover, leases, and fencing were rejected.
 Do not reintroduce them unless the user explicitly changes that decision.

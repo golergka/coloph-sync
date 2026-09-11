@@ -1,0 +1,6 @@
+main_ref = "main"
+remote = "origin"
+commit_check = ["uv", "run", "python", "scripts/check.py"]
+merge_check = ["uv", "run", "python", "scripts/check.py"]
+integration_check = ["uv", "run", "python", "scripts/check.py"]
+deploy_command = ["uv", "run", "python", "scripts/deploy.py"]

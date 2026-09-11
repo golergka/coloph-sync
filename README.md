@@ -83,6 +83,9 @@ For a versioned package, delivery does not have to publish every commit. The pro
 The command publishes only a new declared version. If the version is unchanged, the command can complete without publication.
 The project owns its version policy and registry checks. Coloph-sync does not select or increase versions.
 
+A verification-only command is also valid. It can confirm that the target reached the required Git branch and then exit 0.
+In this configuration, `deployed` means that the project-defined verification completed. It does not mean that an artifact was published.
+
 The engine persists completion before publishing an immutable `deploy/<attempt-id>` tag and the moving `deployed` tag.
 Publication retries do not redeploy a completed attempt. Concurrent changes to the moving tag fail explicitly.
 A lost success acknowledgment remains uncertain and requires reconciliation by the deployment command on retry.
@@ -115,6 +118,8 @@ The engine requires a POSIX host, Git, Python 3.12+, and the project's command d
 ## Development
 
 GitHub releases test and build the matching tag, then publish its wheel and source distribution to PyPI.
+This repository uses coloph-sync from its development environment. Its configuration and installed agent workflows are committed.
+Ordinary commits only verify `origin/main`. A version increase makes the deployment command create and verify a PyPI release.
 
 ### Public writing
 
