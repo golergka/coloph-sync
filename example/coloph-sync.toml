@@ -1,6 +1,0 @@
-main_ref = "main"
-remote = "origin"
-commit_check = ["./scripts/check"]
-merge_check = ["./scripts/check"]
-integration_check = ["./scripts/check"]
-deploy_command = ["./scripts/deploy"]
