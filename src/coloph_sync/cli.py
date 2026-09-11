@@ -197,6 +197,9 @@ def main(argv=None):
             if not created:
                 print("Agent workflows are already installed")
             return 0
+        if args.command == "hook":
+            config = load_config(args.config)
+            return check(config, args.message.resolve())
         check_skills(root)
         if args.command == "message-state":
             state = read_state(sys.stdin.read())
@@ -206,8 +209,6 @@ def main(argv=None):
             print(files("coloph_sync").joinpath("skills", args.name, "SKILL.md").read_text())
             return 0
         config = load_config(args.config)
-        if args.command == "hook":
-            return check(config, args.message.resolve())
         if args.command == "install-hooks":
             install(config)
             print("Installed commit-msg hook. Run: uv run coloph-sync init to install the agent workflows")

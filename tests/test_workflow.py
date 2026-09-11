@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import coloph_sync.cli as cli
 from coloph_sync.cli import check_skills, initialize, install_skills, main, status
 from coloph_sync.config import Config, load_config
 from coloph_sync.engine import Engine
@@ -198,13 +199,23 @@ def test_skill_check_rejects_missing_and_stale_skills(tmp_path):
     with pytest.raises(ValueError, match="skills are missing or out of date"):
         check_skills(tmp_path)
 
-
     install_skills(tmp_path)
     check_skills(tmp_path)
     (tmp_path / ".agents" / "skills" / "sync-finish" / "SKILL.md").write_text("stale\n")
 
     with pytest.raises(ValueError, match="skills are missing or out of date"):
         check_skills(tmp_path)
+
+
+def test_hook_does_not_require_current_skills(project, monkeypatch):
+    config, git = project
+    message = git.root / "message"
+    message.write_text("Change\n")
+    monkeypatch.chdir(git.root)
+    monkeypatch.setattr(cli, "load_config", lambda path: config)
+
+    assert cli.main(["hook", str(message)]) == 0
+    assert read_state(message.read_text()) == CommitState.PASSED
 
 
 def test_skill_lifecycle_has_required_handoffs():
