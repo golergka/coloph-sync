@@ -46,6 +46,7 @@ def main():
                     "run",
                     "--isolated",
                     "--no-project",
+                    "--no-cache",
                     "--with",
                     str(artifact),
                     "coloph-sync",
@@ -53,7 +54,7 @@ def main():
                     cwd=Path(directory),
                 )
                 assert (Path(directory) / "coloph-sync.toml").exists()
-                assert len(list((Path(directory) / "skills").glob("*/SKILL.md"))) == 3
+                assert len(list((Path(directory) / ".agents" / "skills").glob("*/SKILL.md"))) == 3
     else:
         run("uv", "publish", *(str(path) for path in artifacts()))
 

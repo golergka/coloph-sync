@@ -28,7 +28,7 @@ deploy_command = ["./scripts/deploy"]
 
 def _skill_files(root: Path):
     return {
-        root / "skills" / f"coloph-sync-{name}" / "SKILL.md": files("coloph_sync")
+        root / ".agents" / "skills" / f"coloph-sync-{name}" / "SKILL.md": files("coloph_sync")
         .joinpath("skills", name, "SKILL.md")
         .read_text(encoding="utf-8")
         for name in SKILLS
@@ -37,16 +37,22 @@ def _skill_files(root: Path):
 
 def install_skills(root: Path):
     skill_files = _skill_files(root)
-    for path, content in skill_files.items():
-        if path.exists() and path.read_text(encoding="utf-8") != content:
-            raise ValueError(f"Skill file differs: {path}; reconcile or move it before installing")
     created = []
     for path, content in skill_files.items():
-        if not path.exists():
+        if not path.exists() or path.read_text(encoding="utf-8") != content:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding="utf-8")
             created.append(path)
     return created
+
+
+def check_skills(root: Path):
+    for path, content in _skill_files(root).items():
+        if not path.exists() or path.read_text(encoding="utf-8") != content:
+            raise ValueError(
+                "Coloph-sync skills are missing or out of date. "
+                "Run: uv run coloph-sync install-skills"
+            )
 
 
 def initialize(config: Path):
@@ -173,8 +179,17 @@ def main(argv=None):
                 if not created:
                     print("Project files are already initialized")
                 print("Choose a delivery pattern and configure project commands before installing hooks")
-                print("Then run: coloph-sync install-hooks")
+                print("Then run: uv run coloph-sync install-hooks")
             return 0
+        root = args.config.resolve().parent if args.config else Path.cwd()
+        if args.command == "install-skills":
+            created = install_skills(root)
+            for path in created:
+                print(f"Installed {path.relative_to(root)}")
+            if not created:
+                print("Agent workflows are already installed")
+            return 0
+        check_skills(root)
         if args.command == "message-state":
             state = read_state(sys.stdin.read())
             print(state.value if state else "unmarked")
@@ -182,20 +197,12 @@ def main(argv=None):
         if args.command == "skill":
             print(files("coloph_sync").joinpath("skills", args.name, "SKILL.md").read_text())
             return 0
-        if args.command == "install-skills":
-            root = args.config.resolve().parent if args.config else Path.cwd()
-            created = install_skills(root)
-            for path in created:
-                print(f"Installed {path.relative_to(root)}")
-            if not created:
-                print("Agent workflows are already installed")
-            return 0
         config = load_config(args.config)
         if args.command == "hook":
             return check(config, args.message.resolve())
         if args.command == "install-hooks":
             install(config)
-            print("Installed commit-msg hook. Run coloph-sync init to install the agent workflows")
+            print("Installed commit-msg hook. Run: uv run coloph-sync init to install the agent workflows")
             return 0
         if args.command == "uninstall-hooks":
             uninstall(config)

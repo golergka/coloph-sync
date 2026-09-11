@@ -27,7 +27,7 @@ def test_new_version_creates_release(monkeypatch):
     monkeypatch.setenv("COLOPH_SYNC_COMMIT", "target")
     monkeypatch.setattr(deploy, "run", lambda *args, **kwargs: calls.append(args) or "target\trefs/heads/main")
     monkeypatch.setattr(deploy, "remote_tag", lambda tag: None)
-    monkeypatch.setattr(deploy, "published_versions", lambda: {"0.3.0"})
+    monkeypatch.setattr(deploy, "published_versions", lambda: {"0.3.1"})
     monkeypatch.setattr(deploy, "finish_release", lambda tag: calls.append(("finish", tag)))
 
     deploy.main()

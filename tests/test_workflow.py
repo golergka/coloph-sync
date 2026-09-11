@@ -5,7 +5,7 @@ from dataclasses import replace
 
 import pytest
 
-from coloph_sync.cli import initialize, install_skills, main, status
+from coloph_sync.cli import check_skills, initialize, install_skills, main, status
 from coloph_sync.config import Config, load_config
 from coloph_sync.engine import Engine
 from coloph_sync.git import Git
@@ -167,7 +167,7 @@ def test_installer_preserves_existing_hook(project):
     assert hook.read_text() == original
 
 
-def test_skill_install_is_repeatable_and_rejects_conflicts(tmp_path):
+def test_skill_install_is_repeatable_and_updates_stale_files(tmp_path):
     created = install_skills(tmp_path)
     assert {path.parent.name for path in created} == {
         "coloph-sync-contributor",
@@ -177,20 +177,32 @@ def test_skill_install_is_repeatable_and_rejects_conflicts(tmp_path):
     assert install_skills(tmp_path) == []
 
     conflict_root = tmp_path / "conflict"
-    conflict = conflict_root / "skills" / "coloph-sync-finish" / "SKILL.md"
+    conflict = conflict_root / ".agents" / "skills" / "coloph-sync-finish" / "SKILL.md"
     conflict.parent.mkdir(parents=True)
     conflict.write_text("Host workflow\n")
-    with pytest.raises(ValueError, match="Skill file differs"):
-        install_skills(conflict_root)
-    assert conflict.read_text() == "Host workflow\n"
-    assert list((conflict_root / "skills").iterdir()) == [conflict.parent]
+    updated = install_skills(conflict_root)
+    assert conflict in updated
+    assert len(updated) == 3
+    assert conflict.read_text() != "Host workflow\n"
+
+
+def test_skill_check_rejects_missing_and_stale_skills(tmp_path):
+    with pytest.raises(ValueError, match="skills are missing or out of date"):
+        check_skills(tmp_path)
+
+    install_skills(tmp_path)
+    check_skills(tmp_path)
+    (tmp_path / ".agents" / "skills" / "coloph-sync-finish" / "SKILL.md").write_text("stale\n")
+
+    with pytest.raises(ValueError, match="skills are missing or out of date"):
+        check_skills(tmp_path)
 
 
 def test_init_creates_config_and_skills_without_installing_hooks(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     assert main(["init"]) == 0
     assert (tmp_path / "coloph-sync.toml").exists()
-    assert len(list((tmp_path / "skills").glob("*/SKILL.md"))) == 3
+    assert len(list((tmp_path / ".agents" / "skills").glob("*/SKILL.md"))) == 3
     assert not (tmp_path / ".git").exists()
     assert "Choose a delivery pattern" in capsys.readouterr().out
     assert main(["--json", "init"]) == 0
@@ -198,7 +210,7 @@ def test_init_creates_config_and_skills_without_installing_hooks(tmp_path, monke
 
 
 def test_init_rejects_skill_conflict_before_creating_config(tmp_path):
-    conflict = tmp_path / "skills" / "coloph-sync-operator" / "SKILL.md"
+    conflict = tmp_path / ".agents" / "skills" / "coloph-sync-operator" / "SKILL.md"
     conflict.parent.mkdir(parents=True)
     conflict.write_text("Host workflow\n")
     with pytest.raises(ValueError, match="Skill file differs"):
@@ -337,6 +349,7 @@ def test_real_git_hook_and_saved_failure(project):
     )
     git.out("add", "coloph-sync.toml")
     git.out("commit", "-m", "Configure\n\nSync-State: passed")
+    install_skills(config.root)
     install(config)
     git.out("commit", "--allow-empty", "-m", "Review this")
     assert read_state(git.message("HEAD")) == CommitState.FAILED
@@ -352,6 +365,7 @@ def test_real_merge_hook_rejects_automatic_negative_verdict(project, tmp_path):
     )
     git.out("add", "coloph-sync.toml")
     git.out("commit", "-m", "Configure\n\nSync-State: passed")
+    install_skills(config.root)
     child = tmp_path / "child"
     git.out("worktree", "add", "-b", "feature", str(child))
     commit(Git(child), "feature")
