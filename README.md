@@ -43,6 +43,9 @@ Every other CLI command first compares these three small files with the installe
 Run `uv run coloph-sync run --once` in the clean main checkout, or `uv run coloph-sync run` for continuous operation.
 Use `run --branch NAME` to restrict integration to one local worktree branch.
 Use `run --push-deploy-only` to skip branch merges, run the integration check, push main, and deploy it.
+A repository adopted after feature work has begun can merge its active worktree branches with `uv run coloph-sync adopt --all`.
+It runs the normal merge check for each branch, preserves its existing commits, and records each successful adoption in the shared Git directory.
+Branches that conflict or fail their merge check remain unadopted; later commits still require valid `Sync-State` metadata.
 A delivery command is required. Remote branches and cloud supervision are outside this release.
 
 Optional configuration: `preflight_command`, `deployed_ref` (default `deployed`), `deploy_tag_prefix` (default `deploy`),
@@ -86,6 +89,7 @@ WIP and failed tips cannot be used as the starting point of a merge.
 A checked scaffold permits a subsequent merge but cannot be integrated at that tip.
 Older failed checkpoints do not block a later passed tip. All incoming commits must carry valid state metadata.
 Fast-forward merges retain the original commit and its state; the integration check still checks the combined checkout.
+`adopt` is the sole exception for legacy branches: it makes a checked merge commit after the normal merge check succeeds, preserving the older commit hashes.
 
 The engine discovers local worktrees, sorts their branches, and attempts ordinary Git merges.
 It skips a branch while its linked worktree is dirty and reports `worktree is dirty`; clean the worktree before the next cycle.
@@ -126,6 +130,7 @@ uv run coloph-sync stop
 uv run coloph-sync logs
 uv run coloph-sync init
 uv run coloph-sync install-skills
+uv run coloph-sync adopt --all
 uv run coloph-sync skill contributor
 uv run coloph-sync skill merge-main
 uv run coloph-sync skill operator

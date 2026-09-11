@@ -74,14 +74,18 @@ class Git:
         path = Path(self.out("rev-parse", "--git-common-dir"))
         return path if path.is_absolute() else (self.root / path).resolve()
 
-    def worktrees(self):
+    def worktrees(self, *, include_root=False):
         self.out("worktree", "prune")
         output = self.out("worktree", "list", "--porcelain", "-z")
         result = {}
         for record in output.split("\0\0"):
             items = dict(field.split(" ", 1) for field in record.split("\0") if " " in field)
             branch, path = items.get("branch", ""), items.get("worktree", "")
-            if branch.startswith("refs/heads/") and Path(path).is_dir() and Path(path).resolve() != self.root:
+            if (
+                branch.startswith("refs/heads/")
+                and Path(path).is_dir()
+                and (include_root or Path(path).resolve() != self.root)
+            ):
                 result[branch.removeprefix("refs/heads/")] = Path(path)
         return result
 
