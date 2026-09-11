@@ -74,7 +74,9 @@ Diagnose failed checks through the project's prescribed workflow. Never skip or 
 For an authorized contributor repair here, stop the coordinator and use `sync-contributor`.
 Create a normal checked repair commit before resuming. Never leave an uncommitted repair for the loop to collect.
 Without that repair authorization, report the required contributor work and the responsible checkout.
-Resume normal continuous operation after recovery, unless the user requested a single cycle or stopped operation.
+After a coordinator repair, keep the continuous loop stopped. Record `uv run coloph-sync --json status --all`, then run exactly one `uv run coloph-sync run --once`. This recovery cycle performs its one delivery attempt before normal looping resumes; do not run another deploy command or start the continuous loop alongside it. If that cycle fails, recover the new recorded failure instead of re-enabling the loop.
+After that recovery cycle succeeds, compare `uv run coloph-sync --json status --all` with the saved pre-recovery status. Identify every branch newly reported as deployed and every branch with a newly recorded rejection or `action needed` result. When operating in Codex, find the task responsible for each identified branch from its confirmed branch assignment or task history, then send that task: `The coordinator failed, but was fixed. Your branch has been deployed.` or `The coordinator failed, but was fixed. Your branch has been rejected.` Do not guess a task-branch association or message an unrelated task; report an unassigned branch instead.
+Only after this notification pass, resume normal continuous operation unless the user requested a single cycle or stopped operation.
 After three failed repair attempts for the same cause, report the blocker and stop automatic retries.
 Delete the operator reminder when recovery requires unavailable input or new authority.
 
@@ -83,5 +85,5 @@ For authentication or non-fast-forward failures, report the concrete error. Neve
 Report deployment failures even if recovery is possible. A failed deployment can leave remote changes in place.
 Use the project's recovery procedure to reconcile remote work before retrying.
 An interrupted external operation may already have taken effect. Resume through the same coordinator so the configured project command can reconcile it; do not start a competing delivery operation or move coordinator-owned refs manually.
-Use `uv run coloph-sync run --once` for recovery. Use `uv run coloph-sync run --push-deploy-only` only to check and deliver the current integration branch without admitting worktree branches.
+Use `uv run coloph-sync run --push-deploy-only` only to check and deliver the current integration branch without admitting worktree branches; it does not replace the one recovery cycle above.
 The coordinator does not resolve conflicts or perform automatic rollback.
