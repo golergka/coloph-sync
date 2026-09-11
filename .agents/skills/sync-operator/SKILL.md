@@ -8,7 +8,9 @@ That checkout is reserved for merging branches, running checks, and delivery.
 A feature or bug-fix request does not authorize contributor edits there.
 If asked to make such a change there, explain its role and ask the user to assign the task to a contributor checkout.
 Proceed there only if the user explicitly authorizes contributor edits in that checkout; then use `sync-contributor`.
-Starting or resuming the coordinator requires explicit current user authorization. Past authorization does not carry forward.
+Invoking this skill in that checkout authorizes normal coordinator operations, including starting or resuming it.
+Do not ask for additional approval for operations within these worktree boundaries.
+Explicit user authorization is required only for an exception to those boundaries.
 Contributor worktrees belong to their assigned agents. Never inspect, modify, enter, or operate their files or processes.
 Use branch refs, coordinator status, and merge results to integrate their work. A conflict belongs to the worktree owner.
 Do not create or switch worktrees. Access to another checkout requires explicit user authorization.
