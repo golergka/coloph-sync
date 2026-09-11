@@ -5,7 +5,7 @@ from dataclasses import replace
 
 import pytest
 
-from coloph_sync.cli import status
+from coloph_sync.cli import install_skills, status
 from coloph_sync.config import Config, load_config
 from coloph_sync.engine import Engine
 from coloph_sync.git import Git
@@ -165,6 +165,25 @@ def test_installer_preserves_existing_hook(project):
     assert (hook.parent / "commit-msg.before-coloph-sync").read_text() == original
     uninstall(config)
     assert hook.read_text() == original
+
+
+def test_skill_install_is_repeatable_and_rejects_conflicts(tmp_path):
+    created = install_skills(tmp_path)
+    assert {path.parent.name for path in created} == {
+        "coloph-sync-contributor",
+        "coloph-sync-finish",
+        "coloph-sync-operator",
+    }
+    assert install_skills(tmp_path) == []
+
+    conflict_root = tmp_path / "conflict"
+    conflict = conflict_root / "skills" / "coloph-sync-finish" / "SKILL.md"
+    conflict.parent.mkdir(parents=True)
+    conflict.write_text("Host workflow\n")
+    with pytest.raises(ValueError, match="Skill file differs"):
+        install_skills(conflict_root)
+    assert conflict.read_text() == "Host workflow\n"
+    assert list((conflict_root / "skills").iterdir()) == [conflict.parent]
 
 
 def test_barrier_releases_only_after_deployment(project, tmp_path):

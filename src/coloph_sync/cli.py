@@ -14,6 +14,27 @@ from .hooks import check, install, uninstall
 from .state import CommitState, read_state
 from .storage import read_json, write_json
 
+SKILLS = ("contributor", "operator", "finish")
+
+
+def install_skills(root: Path):
+    skill_files = {
+        root / "skills" / f"coloph-sync-{name}" / "SKILL.md": files("coloph_sync")
+        .joinpath("skills", name, "SKILL.md")
+        .read_text(encoding="utf-8")
+        for name in SKILLS
+    }
+    for path, content in skill_files.items():
+        if path.exists() and path.read_text(encoding="utf-8") != content:
+            raise ValueError(f"Skill file differs: {path}; reconcile or move it before installing")
+    created = []
+    for path, content in skill_files.items():
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+            created.append(path)
+    return created
+
 
 def status(engine, branch=None, commit=None):
     git = engine.git
@@ -96,6 +117,7 @@ def main(argv=None):
     deploy.add_argument("--rollback", action="store_true", help="Explicit operator recovery; never used by the loop")
     sub.add_parser("stop", help="Drain the current cycle and prevent the next cycle")
     sub.add_parser("logs")
+    sub.add_parser("install-skills", help="Install agent workflows in the host project")
     sub.add_parser("install-hooks")
     sub.add_parser("uninstall-hooks")
     sub.add_parser("message-state", help="Read a commit message from stdin and print its state")
@@ -104,7 +126,7 @@ def main(argv=None):
     state = sub.add_parser("state", help="Read the typed commit state")
     state.add_argument("ref", nargs="?", default="HEAD")
     skill = sub.add_parser("skill", help="Print the bundled operating instructions")
-    skill.add_argument("name", choices=["contributor", "operator", "finish"])
+    skill.add_argument("name", choices=SKILLS)
     for name in ("status", "wait"):
         p = sub.add_parser(name)
         p.add_argument("--branch")
@@ -120,6 +142,14 @@ def main(argv=None):
             return 0
         if args.command == "skill":
             print(files("coloph_sync").joinpath("skills", args.name, "SKILL.md").read_text())
+            return 0
+        if args.command == "install-skills":
+            root = args.config.resolve().parent if args.config else Path.cwd()
+            created = install_skills(root)
+            for path in created:
+                print(f"Installed {path.relative_to(root)}")
+            if not created:
+                print("Agent workflows are already installed")
             return 0
         config = load_config(args.config)
         if args.command == "hook":

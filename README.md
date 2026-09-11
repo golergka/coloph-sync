@@ -25,6 +25,8 @@ deploy_command = ["./scripts/deploy"]
 
 Supply real executable check and deployment commands before installation.
 Run `coloph-sync install-hooks`. Existing commit-msg hooks run before the managed hook; uninstall restores them.
+Run `coloph-sync install-skills` to install the bundled agent workflows in the host project's `skills/` directory.
+Configure the agent host to discover that directory if needed. Identical files are left alone; a different existing skill stops installation before any file is written.
 Run `coloph-sync run --once` in the clean main checkout, or `coloph-sync run` for continuous operation.
 Use `run --branch NAME` to restrict integration to one local worktree branch.
 Use `run --push-deploy-only` to skip branch merges, run the integration check, push main, and deploy it.
@@ -83,12 +85,14 @@ coloph-sync --json status --commit <sha>
 coloph-sync wait --commit <sha> --until deployed
 coloph-sync stop
 coloph-sync logs
+coloph-sync install-skills
 coloph-sync skill contributor
 coloph-sync skill operator
 coloph-sync skill finish
 ```
 
-Link repository agent instructions to these bundled skills. Keep project-specific checks and production smoke procedures in the project.
+The installed skill descriptions tell agents when to use contributor, operator, and finish workflows.
+Keep project-specific checks, delivery implementation, reviewers, and manual validation procedures in the project.
 Stop drains the current cycle. SIGTERM also drains. A forced interruption cannot cancel remote deployment work reliably.
 State and logs live in the shared Git directory, so linked worktrees see the same results.
 The engine requires a POSIX host, Git, Python 3.12+, and the project's command dependencies.

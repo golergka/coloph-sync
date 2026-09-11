@@ -1,6 +1,6 @@
 ---
 name: coloph-sync-operator
-description: Start, stop, inspect, or recover the local coloph-sync integration and deployment coordinator.
+description: Start, stop, inspect, or recover the coloph-sync coordinator. Use only when assigned to operate the designated integration checkout; contributors use coloph-sync-contributor or coloph-sync-finish.
 ---
 
 Operate only the designated integration checkout with repository authorization.
@@ -11,10 +11,7 @@ Read `coloph-sync logs` and `coloph-sync status --all` for evidence.
 
 A failed cycle stops the loop. Investigate its recorded phase and output.
 Branch conflicts and invalid metadata leave that branch out; other eligible branches continue.
-Check failures stop publication. Deploy failures do not prove that production stayed unchanged.
-The deployment command must reconcile repeated calls with the same attempt ID and target.
-Resume with `coloph-sync run --once`; it resolves an unfinished deployment before admitting new work.
-A completed deployment with failed ref publication retries publication without running deployment again.
-Do not move deployment tags manually or start an independent deploy process.
-For an intentional manual deployment of the current pushed main commit, use `coloph-sync deploy`.
-Automatic rollback and conflict resolution are not supported.
+Check failures stop the cycle. Contributor conflicts belong to their branch owners.
+An interrupted external operation may already have taken effect. Resume through the same coordinator so the configured project command can reconcile it; do not start a competing delivery operation or move coordinator-owned refs manually.
+Use `coloph-sync run --once` for recovery. Use `coloph-sync run --push-deploy-only` only to check and deliver the current integration branch without admitting worktree branches.
+The coordinator does not resolve conflicts or perform automatic rollback.
