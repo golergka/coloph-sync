@@ -1,6 +1,6 @@
 ---
 name: sync-contributor
-description: Work on any task that changes version-controlled files in a repository managed by the sync coordinator, including committing work, repairing a failed check, or resolving an integration conflict. Use sync-finish for end-to-end closeout.
+description: Implement and commit contributor work in a repository managed by the sync coordinator, then hand it to sync-finish for integration, delivery, and closeout.
 ---
 
 Before editing, determine whether the current checkout is the checkout where the sync coordinator runs.
@@ -33,7 +33,15 @@ A rejected hook does not create a commit. Repair the stated error and retry.
 Do not bypass the hook or rewrite check results.
 
 Read `uv run coloph-sync status`. A conflict belongs to the branch owner.
-Load `sync-merge-main` and follow it completely to integrate the configured local main branch. Read both sides from their shared parent, preserve both intended behaviors, resolve the conflict, and run the relevant checks. Use a real merge; do not rebase or recreate selected changes.
+Load `sync-merge-main` and follow it completely when the current branch needs the configured local main branch or when the coordinator reports a merge conflict for the current tip. Read both histories from their shared parent, preserve both intended behaviors, resolve the conflict, and run the relevant checks. Use a real merge; do not rebase or recreate selected changes.
 Do not operate the coordinator while repairing your branch.
 The coordinator attempts merges; it does not resolve conflicts or write repairs.
-If the finish workflow sent you here, return to it after the repair commit.
+
+## Required closeout handoff
+
+After an ordinary passed commit, immediately use `sync-finish` in the same turn.
+Do not give a final user handoff from this workflow.
+
+Skip `sync-finish` only when the user explicitly pauses the task, requests a local-only commit, or tells you not to wait for integration or delivery.
+
+If `sync-finish` sent you here for a repair, return to `sync-finish` after the repair commit. Continue the closeout workflow in the same turn.

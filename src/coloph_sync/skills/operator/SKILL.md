@@ -15,6 +15,7 @@ Contributor worktrees belong to their assigned agents. Never inspect, modify, en
 Use branch refs, coordinator status, and merge results to integrate their work. A conflict belongs to the worktree owner.
 Do not create or switch worktrees. Access to another checkout requires explicit user authorization.
 Approval for the integration checkout does not grant access to contributor worktrees.
+
 ## Start and supervise
 
 On invocation, start or resume continuous operation unless the user requests inspection, stopping, or a single cycle.

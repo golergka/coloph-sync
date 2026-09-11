@@ -14,7 +14,7 @@ Keep closeout scoped to this branch's work. The latest user instructions and act
 - Start every closeout turn and reminder wakeup by loading this skill from the beginning.
 - Work only in the current worktree and branch. Never inspect another worktree or the integration checkout.
 - Do not create another worktree or switch branches unless the user explicitly requests that operation.
-- If the provided worktree is detached, create a descriptive `codex/` branch at its current HEAD. This is the only automatic branch operation.
+- If the provided worktree is detached, create a descriptive `codex/` branch at the current HEAD. This is the only automatic branch operation.
 - Setting a tool's working directory outside the current worktree does not bypass this boundary. Approval for one worktree does not grant access to another worktree.
 - Saving work means creating a commit. A failed checkpoint must have an ordinary passed successor before closeout.
 - Run `uv run coloph-sync status` as the sole routine merge and deployment status check. Use its branch, tip, checks, phase, reason, merged, and deployed fields directly. Do not reconstruct or second-guess routine status with Git containment, tags, process inspection, or coordinator logs.

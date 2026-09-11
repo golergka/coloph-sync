@@ -2,9 +2,11 @@ import json
 import subprocess
 import sys
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
+import coloph_sync.cli as cli
 from coloph_sync.adoption import candidates, hint
 from coloph_sync.cli import check_skills, initialize, install_skills, main, status
 from coloph_sync.config import Config, load_config
@@ -195,6 +197,8 @@ def test_installer_preserves_existing_hook(project):
     install(config)
     install(config)
     assert (hook.parent / "commit-msg.before-coloph-sync").read_text() == original
+    assert 'root="$(git rev-parse --show-toplevel)"' in hook.read_text()
+    assert 'exec uv run coloph-sync hook "$@"' in hook.read_text()
     uninstall(config)
     assert hook.read_text() == original
 
@@ -235,6 +239,30 @@ def test_skill_check_rejects_missing_and_stale_skills(tmp_path):
 
     with pytest.raises(ValueError, match="skills are missing or out of date"):
         check_skills(tmp_path)
+
+
+def test_hook_does_not_require_current_skills(project, monkeypatch):
+    config, git = project
+    message = git.root / "message"
+    message.write_text("Change\n")
+    monkeypatch.chdir(git.root)
+    monkeypatch.setattr(cli, "load_config", lambda path: config)
+
+    assert cli.main(["hook", str(message)]) == 0
+    assert read_state(message.read_text()) == CommitState.PASSED
+
+
+def test_skill_lifecycle_has_required_handoffs():
+    root = Path(__file__).parents[1] / "src" / "coloph_sync" / "skills"
+    contributor = (root / "contributor" / "SKILL.md").read_text()
+    finish = (root / "finish" / "SKILL.md").read_text()
+    merge_main = (root / "merge-main" / "SKILL.md").read_text()
+
+    assert "immediately use `sync-finish` in the same turn" in contributor
+    assert "Do not give a final user handoff from this workflow" in contributor
+    assert "Do not report completion while work is only locally clean" in finish
+    assert "Return to `sync-finish` in the same turn" in merge_main
+    assert (root / "merge-main" / "references" / "conflict-review.md").exists()
 
 
 def test_init_creates_config_and_skills_without_installing_hooks(tmp_path, monkeypatch, capsys):

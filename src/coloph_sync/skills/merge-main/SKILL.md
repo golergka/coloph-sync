@@ -1,6 +1,6 @@
 ---
 name: sync-merge-main
-description: Merge configured local main into the current contributor branch with merge-base history review, semantic conflict diagnosis, and clear escalation criteria.
+description: Merge configured local main into the current contributor branch with merge-base history review, semantic conflict diagnosis, validation, and return to sync-finish.
 ---
 
 # Merge Main
@@ -119,3 +119,5 @@ Use this format:
 - `Semantic risk: <brief>`
 - `Resolution: <brief>`
 - `Escalation: <none|reason>`
+
+Return to `sync-finish` in the same turn. Do not give a final user handoff from this workflow.
