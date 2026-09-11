@@ -61,6 +61,13 @@ def test_status_exposes_failed_integration_after_deployment(project):
     assert result["verdict"] == "action needed"
 
 
+def test_status_tracks_current_branch_tip(project):
+    config, git = project
+    expected = commit(git, "new-tip")
+
+    assert status(Engine(config))["commit"] == expected
+
+
 def test_terminal_barrier_is_mergeable_after_parent_deploy(project, tmp_path):
     config, git = project
     child = tmp_path / "barrier-child"

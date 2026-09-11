@@ -5,10 +5,10 @@ description: Finish an implemented change end to end in a repository managed by 
 
 Start from the original request in this chat and the work you directly performed. Identify every requested outcome before checking delivery.
 
-Run `uv run coloph-sync status` for the current branch, or select the intended commit explicitly. Distinguish integrated from delivered. A successful local commit is not completed work.
+Run `uv run coloph-sync status` for the current branch. Distinguish integrated from delivered. A successful local commit is not completed work. If the branch tip changed unexpectedly, investigate and repair that problem instead of tracking an older commit.
 Repair actionable branch failures through `coloph-sync-contributor`, then return here. If the coordinator has not checked the repaired tip, wait; do not treat the older failure as current.
 
-Use `uv run coloph-sync wait --commit <sha>` for a short foreground wait. For a long or externally timed wait, use sparse host reminders: check once per wakeup, stay quiet while unchanged, and stop the reminder when delivery completes, waiting expires, or work is blocked. Expiry ends passive waiting; it does not cancel an already authorized repair.
+Use `uv run coloph-sync wait` for a short foreground wait. For a long or externally timed wait, use sparse host reminders: check once per wakeup, stay quiet while unchanged, and stop the reminder when delivery completes, waiting expires, or work is blocked. Expiry ends passive waiting; it does not cancel an already authorized repair.
 
 After delivery, follow the repository's relevant validation procedure. Always tell the user how to test the delivered behavior manually, with concrete steps and expected results, whether or not you could perform that test yourself. A delivery record proves historical success, not current health.
 

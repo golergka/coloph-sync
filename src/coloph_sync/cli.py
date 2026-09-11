@@ -67,10 +67,10 @@ def initialize(config: Path):
     return created
 
 
-def status(engine, branch=None, commit=None):
+def status(engine, branch=None):
     git = engine.git
     branch = branch or git.out("branch", "--show-current")
-    sha = git.resolve(commit or branch)
+    sha = git.resolve(branch)
     if not sha:
         raise ValueError("Specify an existing branch or commit")
     report = read_json(engine.report_path)
@@ -162,7 +162,6 @@ def main(argv=None):
     for name in ("status", "wait"):
         p = sub.add_parser(name)
         p.add_argument("--branch")
-        p.add_argument("--commit")
         p.add_argument("--all", action="store_true")
         p.add_argument("--until", choices=["merged", "deployed"], default="deployed")
         p.add_argument("--timeout", type=int, default=14400)
@@ -242,7 +241,7 @@ def main(argv=None):
                     if args.all
                     else [args.branch]
                 )
-                values = [status(engine, branch, args.commit) for branch in branches]
+                values = [status(engine, branch) for branch in branches]
                 if args.json:
                     print(json.dumps(values if args.all else values[0]))
                 else:
