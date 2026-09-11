@@ -1,5 +1,11 @@
 # Working on coloph-sync
 
+Work only in the current worktree and branch. Never inspect another worktree.
+Do not create another worktree or switch branches unless the user explicitly requests that operation.
+If the provided worktree is detached, create a descriptive `codex/` branch at its current HEAD.
+Saving work means creating a commit. Never delete a branch that you did not create.
+Reserve the clean `main` checkout for the assigned sync operator. Mutate it only with explicit current user authorization.
+
 Keep this project simple. Use the smallest change that solves an established problem.
 Keep issue management minimal. Keep design and implementation in the same feature issue.
 Explain open choices in that issue. A feature is complete when it works, not when a plan exists.

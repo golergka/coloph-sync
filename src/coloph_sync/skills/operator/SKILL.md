@@ -4,6 +4,11 @@ description: Start, stop, inspect, or recover the coloph-sync coordinator. Use o
 ---
 
 Operate only the designated integration checkout with repository authorization.
+Starting or resuming the coordinator requires explicit current user authorization. Past authorization does not carry forward.
+Contributor worktrees belong to their assigned agents. Never inspect, modify, enter, or operate their files or processes.
+Use branch refs, coordinator status, and merge results to integrate their work. A conflict belongs to the worktree owner.
+Do not create or switch worktrees. Access to another checkout requires explicit user authorization.
+Approval for the integration checkout does not grant access to contributor worktrees.
 Run `coloph-sync run` in the foreground. A terminal multiplexer or service manager can host it.
 Use `coloph-sync stop` to finish the current cycle and prevent another cycle.
 Do not edit the checkout while the coordinator owns it. Wait for its process to exit.

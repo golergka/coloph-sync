@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+test -s public/index.html
+grep -q "Continuous web app example" public/index.html

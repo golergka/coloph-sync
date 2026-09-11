@@ -3,7 +3,16 @@ name: coloph-sync-contributor
 description: Commit work, repair a failed check, or resolve an integration conflict in a repository managed by coloph-sync. Use during branch development; use coloph-sync-finish for end-to-end closeout.
 ---
 
-Keep work in the assigned branch. Read the repository's check and Git instructions.
+Work only in the current worktree and branch. Never inspect another worktree or the integration checkout.
+Do not create another worktree or switch branches unless the user explicitly requests that operation.
+If the provided worktree is detached, create a descriptive `codex/` branch at the current HEAD. This is the only automatic branch operation.
+Setting a tool's working directory outside the current worktree does not bypass this boundary.
+Never copy configuration or files from another worktree. Never delete a branch that you did not create.
+Approval for one worktree does not grant access to another worktree.
+Never force-push or use `git reset --hard`. Destructive cleanup requires explicit current user approval.
+Read the repository's check and Git instructions.
+
+Saving work means creating a commit. Finish with an ordinary passed commit; a WIP or failed checkpoint is not finished work.
 The commit-msg hook owns check results. An ordinary commit needs no input marker.
 Never copy a passed marker to avoid checks. The hook always checks ordinary commits.
 

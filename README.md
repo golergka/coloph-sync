@@ -9,18 +9,18 @@ Licensed under GPL-3.0-only.
 Python projects can pin the CLI as a development dependency and commit the updated project file and lockfile:
 
 ```sh
-uv add --dev 'coloph-sync==0.3.1'
+uv add --dev 'coloph-sync==0.3.2'
 uv run coloph-sync init
 ```
 
 Other projects can install the same fixed version as an isolated tool:
 
 ```sh
-uv tool install 'coloph-sync==0.3.1'
+uv tool install 'coloph-sync==0.3.2'
 coloph-sync init
 ```
 
-To run a fixed version without installing it, use `uvx --from 'coloph-sync==0.3.1' coloph-sync`.
+To run a fixed version without installing it, use `uvx --from 'coloph-sync==0.3.2' coloph-sync`.
 The CLI is implemented in Python, but host projects integrate through executable commands and can use any language.
 
 `init` installs the three agent workflows under `skills/` and creates `coloph-sync.toml` if absent:
@@ -34,19 +34,45 @@ integration_check = ["./scripts/check", "integration"]
 deploy_command = ["./scripts/deploy"]
 ```
 
-Replace the example commands with real project commands, then run `coloph-sync install-hooks`.
+The user or agent host must create each worktree and assign it to one agent. Coloph-sync does not create, assign, or transfer worktrees.
+An agent must remain in its assigned worktree. It must not create another worktree, switch branches, or inspect another worktree without explicit user authorization.
+Approval for one worktree does not grant access to another worktree.
+If an assigned worktree is detached, the agent creates a branch at its current HEAD. This is the only automatic branch operation.
+Saving work means creating a commit. A WIP or failed checkpoint is not finished work.
+These rules remain mandatory if the agent host does not enforce working-directory boundaries mechanically.
+The managed commit hook enforces commit states, not worktree ownership. Configure host work-directory and command guards when available.
+
+Choose a project pattern and replace the example commands with real project commands. Document the project policy for agents.
+Then run `coloph-sync install-hooks`.
 Existing commit-msg hooks run before the managed hook; uninstall restores them.
 Configure the agent host to discover `skills/` if needed. Identical installed workflows are left alone; a different existing workflow stops initialization before any file is written.
+Contributors work only in their assigned linked worktrees. Reserve the clean `main` checkout for the assigned coordinator.
 Run `coloph-sync run --once` in the clean main checkout, or `coloph-sync run` for continuous operation.
 Use `run --branch NAME` to restrict integration to one local worktree branch.
 Use `run --push-deploy-only` to skip branch merges, run the integration check, push main, and deploy it.
-Deployment is required. Remote branches and cloud supervision are outside this release.
+A delivery command is required. Remote branches and cloud supervision are outside this release.
 
 Optional configuration: `preflight_command`, `deployed_ref` (default `deployed`), `deploy_tag_prefix` (default `deploy`),
 `check_timeout` and `deploy_timeout` (14400 seconds), `merge_timeout` (1500 seconds), and `interval` (60 seconds).
 Missing merge or integration commands use `commit_check`.
 `coloph-sync.local.toml` overrides local configuration. Unknown keys fail. `--config PATH` selects another root.
 Secrets belong in the command environment, not the checked-in configuration.
+
+## Project patterns and ownership
+
+Coloph-sync owns commit states, local worktree integration, combined checks, retries, and delivery records.
+The host project owns its checks, delivery meaning, infrastructure, version policy, agent policy, and manual validation.
+The user or agent host owns worktree creation and assignment.
+
+These patterns are all valid:
+
+- Continuous delivery: each integrated commit updates a running application. See the [continuous web app example](example/continuous-web-app/README.md).
+- Deliberate releases: ordinary commits only confirm integration. A project-defined change requests a versioned release.
+- Verification only: the delivery command confirms that the commit reached a required branch or upstream. It publishes nothing.
+
+This repository is the deliberate-release example. Its [configuration](coloph-sync.toml) uses project-owned check and delivery commands.
+Its [agent instructions](AGENTS.md) define SemVer choices. A version increase requests a GitHub and PyPI release.
+An unchanged version only confirms that the exact commit reached `origin/main`.
 
 ## Check contract
 

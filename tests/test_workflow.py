@@ -192,7 +192,9 @@ def test_init_creates_config_and_skills_without_installing_hooks(tmp_path, monke
     assert (tmp_path / "coloph-sync.toml").exists()
     assert len(list((tmp_path / "skills").glob("*/SKILL.md"))) == 3
     assert not (tmp_path / ".git").exists()
-    capsys.readouterr()
+    output = capsys.readouterr().out
+    assert "must not create worktrees" in output
+    assert "Choose a delivery pattern" in output
     assert main(["--json", "init"]) == 0
     assert capsys.readouterr().out == '{"created": []}\n'
 

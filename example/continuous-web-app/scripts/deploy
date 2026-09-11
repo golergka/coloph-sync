@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+: "${COLOPH_SYNC_COMMIT:?}"
+: "${WEB_ROOT:?}"
+
+release="$WEB_ROOT/releases/$COLOPH_SYNC_COMMIT"
+mkdir -p "$release"
+cp -R public/. "$release/"
+ln -sfn "$release" "$WEB_ROOT/current"

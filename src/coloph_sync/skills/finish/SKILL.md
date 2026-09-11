@@ -5,6 +5,14 @@ description: Finish an implemented change end to end in a repository managed by 
 
 Start from the original request in this chat and the work you directly performed. Identify every requested outcome before checking delivery.
 
+Work only in the current worktree and branch. Never inspect another worktree or the integration checkout.
+Do not create another worktree or switch branches unless the user explicitly requests that operation.
+If the provided worktree is detached, create a descriptive `codex/` branch at the current HEAD. This is the only automatic branch operation.
+Setting a tool's working directory outside the current worktree does not bypass this boundary.
+Approval for one worktree does not grant access to another worktree.
+Saving work means creating a commit. A WIP or failed checkpoint must have an ordinary passed successor before closeout.
+Do not operate the coordinator from this workflow.
+
 Run `coloph-sync status` for the current branch, or select the intended commit explicitly. Distinguish integrated from delivered. A successful local commit is not completed work.
 Repair actionable branch failures through `coloph-sync-contributor`, then return here. If the coordinator has not checked the repaired tip, wait; do not treat the older failure as current.
 
