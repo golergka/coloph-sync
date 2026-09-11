@@ -1,55 +1,71 @@
 ---
 name: sync-merge-main
-description: Merge local main into the current contributor branch after a sync conflict, with history review, semantic conflict resolution, and validation.
+description: Merge the configured local main branch into the current contributor branch with history review, semantic conflict repair, validation, and return to sync-finish.
 ---
 
-Use this skill when a contributor branch must integrate the configured local main branch, especially after `uv run coloph-sync status` reports an actionable merge conflict for the current tip.
-A recorded conflict does not resolve through waiting. The branch owner must advance the branch with a real merge before the coordinator can retry it.
+# Merge Main
 
-Work only in the current worktree and branch. Never inspect another worktree or operate the coordinator checkout.
-Do not create another worktree or switch branches unless the user explicitly requests that operation.
-If the checkout is detached, create a descriptive `codex/` branch at its current HEAD.
-Never merge a remote-tracking branch. Read `main_ref` from `coloph-sync.toml` and merge that local branch.
-Do not rebase, force-push, bypass hooks, or select a whole conflicted file with `--ours` or `--theirs`.
+Use this skill when a contributor branch needs local main for validation, compatibility, closeout, or repair of a current sync conflict.
+
+A current sync merge failure is actionable. Do not end the turn or only report it. Integrate local main, resolve every textual and semantic conflict, validate the result, and return to `sync-finish`.
+
+Read the repository's Git, commit, and validation instructions before you start.
+
+## Non-negotiable rules
+
+- Merge the configured local main branch. Never merge `origin/main`.
+- A branch owner repairs a current sync merge failure.
+- Read both histories from their shared merge base before `git merge`.
+- Do not abort a failed merge before diagnosis.
+- Resolve behavior and data-model intent, not only conflict markers.
+- Do not use `git checkout --ours`, `git checkout --theirs`, or a whole-file checkout to resolve a conflict.
+- Do not rebase, force-push, or recreate selected main changes.
+- Preserve hook-managed commit metadata. Use Git's generated merge subject.
 
 ## Prepare
 
-1. Read the repository's Git, check, and delivery instructions.
+1. Read `main_ref` from `coloph-sync.toml`. Use `main` when the configuration uses the default.
 2. Run `git branch --show-current` and `git status --short --branch`.
-3. Finish and commit current work before merging. A `wip` or `failed` tip needs an ordinary passed successor before it can be merged.
-4. Resolve the configured local main ref and compute the shared parent with `git merge-base HEAD <main-ref>`.
-5. If `<main-ref>` is already an ancestor of `HEAD`, do not create a no-op merge.
+3. If the checkout is detached, create a descriptive `codex/` branch at its current HEAD.
+4. If the branch is the local main branch, stop. This skill is for contributor branches.
+5. Commit or explicitly park a dirty tree before you merge.
+6. If local main is already an ancestor of `HEAD`, do not create a no-op merge.
+7. If the tip is `Sync-State: wip` or `Sync-State: failed`, create a reviewed `Sync-State: dont-merge` scaffold before the merge.
 
 ## Read both histories
 
-Before changing files, read both lines from their shared parent:
+Compute the merge base. Read the branch commits and the incoming main commits from that base in chronological order.
 
-- `git log --oneline --reverse <base>..HEAD`
-- `git log --oneline --reverse <base>..<main-ref>`
+Build an intent map before you change files:
 
-Identify the intent of each side, the modules both sides changed, and any refactor or interface that incoming work may affect.
+- What refactors or contract changes exist on the branch?
+- What refactors or contract changes arrive from main?
+- Which modules, migrations, interfaces, or tests changed on both sides?
 
 ## Merge and resolve
 
 Run `git merge <main-ref> --no-edit`.
-If it conflicts, list unresolved files with `git diff --name-only --diff-filter=U`.
-For each file, inspect its commits on both sides and the relevant introducing diffs.
 
-Resolve behavior, not only conflict markers:
+If the merge conflicts, list the unresolved files. For every file, inspect its commits and introducing diffs on both sides of the merge base.
 
-- Preserve compatible requirements from both sides.
-- Port branch features onto newer interfaces introduced by main.
-- Update adjacent callers, tests, configuration, or migrations when the resolved contract changes.
-- Escalate only when product behavior, data policy, permissions, or another material decision cannot be inferred safely.
+Classify each conflict:
 
-After textual resolution, search for semantic drift in both directions. Check that incoming commits did not restore concepts removed on the branch and that branch work uses replacements introduced on main.
+- Trivial: formatting, import order, or the same invariant.
+- Refactor-coupled: one side changed a contract and the other side uses the old contract.
+- Escalation: product behavior, data policy, permission behavior, or migration order needs new authority.
 
-## Validate and save
+Resolve by meaning. Preserve required invariants from both sides. Port branch features to the main architecture. Update callers, tests, configuration, and migrations when the resolved contract requires it.
 
-Run focused checks for affected behavior and the repository's required commit checks.
-Review `git status --short --branch`, stage the resolved files, and complete the merge with Git's generated merge subject.
-Do not replace the generated subject or hand-edit hook-managed commit metadata.
+After textual resolution, do a refactor-drift sweep. Search for old symbols, deprecated tables or columns, old helpers, and old route or CLI contracts. Correct clear fallout now.
 
-After the passed merge commit, run `uv run coloph-sync status` for the new tip. An old conflict recorded for an ancestor can be ignored while the coordinator has not checked the new tip. A new conflict recorded for the new tip starts this workflow again.
+For complex conflicts, read [conflict review patterns](references/conflict-review.md) before you save the merge.
 
-Report the shared base, the important commits and intent on each side, any semantic risk, the chosen resolution, checks run, and any decision that still requires the user.
+## Validate, save, and return
+
+Run focused checks and the repository's required checks. Review `git status --short --branch`. Stage the resolved files. Complete the merge with Git's generated message.
+
+Report the merge base, important branch and main commits, semantic risks, chosen resolution, checks, and any escalation.
+
+Run `uv run coloph-sync status` for the new tip. If it has not checked that tip, wait through `sync-finish`. If it records another merge failure for that tip, repeat this workflow.
+
+Return to `sync-finish` in the same turn. Do not give a final handoff from this workflow.

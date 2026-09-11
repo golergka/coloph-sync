@@ -165,6 +165,8 @@ def test_installer_preserves_existing_hook(project):
     install(config)
     install(config)
     assert (hook.parent / "commit-msg.before-coloph-sync").read_text() == original
+    assert 'root="$(git rev-parse --show-toplevel)"' in hook.read_text()
+    assert 'exec uv run coloph-sync hook "$@"' in hook.read_text()
     uninstall(config)
     assert hook.read_text() == original
 

@@ -1,32 +1,59 @@
 ---
 name: sync-finish
-description: Finish an implemented change end to end in a repository managed by the sync coordinator. Use for closeout after branch work; it owns waiting, delivery confirmation, manual test guidance, and remaining-scope review.
+description: Close out committed contributor work through integration, delivery, and project validation. Repair actionable branch failures in the same turn.
 ---
 
-Start from the original request in this chat and the work you directly performed. Identify every requested outcome before checking delivery.
+# Finish Work
 
-Work only in the current worktree and branch. Never inspect another worktree or the integration checkout.
-Do not create another worktree or switch branches unless the user explicitly requests that operation.
-If the provided worktree is detached, create a descriptive `codex/` branch at the current HEAD. This is the only automatic branch operation.
-Setting a tool's working directory outside the current worktree does not bypass this boundary.
-Approval for one worktree does not grant access to another worktree.
-Saving work means creating a commit. A WIP or failed checkpoint must have an ordinary passed successor before closeout.
-Do not operate the coordinator from this workflow.
+Use this skill after a normal contributor commit. The goal is to integrate the current branch, complete the project's delivery command, and validate the delivered behavior.
 
-Run `uv run coloph-sync status` for the current branch, or select the intended commit explicitly. Distinguish integrated from delivered. A successful local commit is not completed work.
-Repair actionable branch failures through `sync-contributor`, then return here. If the coordinator has not checked the repaired tip, wait; do not treat the older failure as current.
+The current user request defines the closeout scope. Do not include unrelated branches, failures, deliveries, or production changes in the handoff.
 
-Use a sparse host reminder when integration or delivery is pending. Check once per wakeup and stay quiet while the state is unchanged. Stop the reminder when delivery completes, waiting expires, or work is blocked. Expiry ends passive waiting; it does not cancel an already authorized repair.
+## Non-negotiable rules
 
-After delivery, follow the repository's relevant validation procedure. Always tell the user how to test the delivered behavior manually, with concrete steps and expected results, whether or not you could perform that test yourself. A delivery record proves historical success, not current health.
+- Start every closeout turn and reminder wakeup by loading this skill.
+- A local commit is not completion. Do not report completion before integration, delivery, and required validation.
+- A current actionable failure is a repair instruction. Do not end the turn only to report it.
+- Use the named repair workflow immediately. Then return here in the same turn.
+- Do not operate or diagnose the coordinator from this skill.
+- Use `uv run coloph-sync status` as the routine branch-status command. Do not reconstruct its result with routine Git containment commands.
+- Keep a pending branch under a bounded host reminder. Do not silently abandon integration or delivery waiting.
 
-Inspect the whole chat and the branch history for remaining work. Include later commits held behind a delivery barrier: delivery of the prerequisite does not complete its successors.
+## Start and repair
 
-Report exactly these four parts:
+Run `uv run coloph-sync status` for the current branch. Use `--commit` only when the intended commit is explicit.
 
-1. Work directly completed, including verification and delivery state.
-2. How the user can test it manually, including expected results.
-3. Original scope of the chat and material changes to that scope.
-4. Work still remaining, including blocked tests, barrier-held work, and the next action.
+If the status identifies a conflict, a branch that needs local main, or a merge failure for the current tip, use `sync-merge-main` now. Return here after its passed merge commit.
 
-Do not claim completion while any requested outcome, required validation, or barrier-held successor remains unresolved.
+If the status identifies another repairable branch failure, use `sync-contributor` now. Return here after its passed repair commit.
+
+If the status records a failure for an ancestor of the current tip, wait for the coordinator to check the new tip. Do not repair the old result again.
+
+If the status says `action needed` because checks failed, repair the affected branch in this turn. A deployed branch still needs repair when the status reports a current check failure.
+
+## Wait for integration and delivery
+
+If the current tip is not integrated or delivered and no repair is required, create or reuse a bounded host reminder for this task. Check once on each wakeup. Stay quiet while the result is unchanged.
+
+The reminder must load this skill first. It must check `uv run coloph-sync status` for this branch. It must repair a current actionable failure instead of reporting it. It must stop when delivery completes, the bounded wait expires, or work needs new user authority.
+
+Do not give a final handoff while the reminder is active. Report only the pending state and the next automatic check.
+
+## Validate delivery
+
+After the branch is delivered, follow the repository's required validation procedure. Use the closest real user or operator path. A delivery record proves historical delivery. It does not prove that the service is healthy now.
+
+Always give the user concrete manual test steps and expected results. If a real validation is unsafe or unavailable, state the reason and run the closest safe check.
+
+Review the original request, later scope changes, and branch history. Include work held behind a deployment barrier. Delivery of a barrier parent does not complete its successors.
+
+## Final handoff
+
+Report all of these parts:
+
+1. Requested scope, including material changes to that scope.
+2. Delivered scope, verification, integration state, and delivery state.
+3. Manual validation steps and expected results.
+4. Remaining work, blockers, barrier-held successors, and the next action.
+
+Do not claim completion while a requested outcome, required validation, or barrier-held successor remains unresolved.

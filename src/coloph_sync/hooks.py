@@ -1,8 +1,6 @@
 """One hook owner for ordinary and merge commits."""
 
 import os
-import shlex
-import sys
 from pathlib import Path
 
 from .config import Config
@@ -80,13 +78,13 @@ def install(config: Config):
         if previous.exists():
             raise ValueError(f"Cannot preserve another existing hook at {previous}")
         hook.rename(previous)
-    # Resolve the repository at invocation time so linked worktrees share this hook.
-    command = shlex.join([sys.executable, "-m", "coloph_sync.cli", "hook"])
     hook.write_text(
         f"#!/bin/sh\n{signature}\n"
         'previous="$(dirname "$0")/commit-msg.before-coloph-sync"\n'
         'if [ -x "$previous" ]; then "$previous" "$@" || exit $?; fi\n'
-        f'exec {command} "$@"\n'
+        'root="$(git rev-parse --show-toplevel)" || exit $?\n'
+        'cd "$root" || exit $?\n'
+        'exec uv run coloph-sync hook "$@"\n'
     )
     hook.chmod(0o755)
 
