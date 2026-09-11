@@ -15,7 +15,7 @@ from .hooks import check, install, uninstall
 from .state import CommitState, read_state
 from .storage import read_json, write_json
 
-SKILLS = ("contributor", "merge-main", "operator", "finish")
+SKILLS = ("contributor", "merge-main", "operator", "finish", "release")
 CONFIG_TEMPLATE = """# Coloph-sync owns commit checks, integration, and calls to the deployment command.
 # This project owns the commands, release policy, deployment service, and success criteria.
 # A package can publish only after a version change. A continuously deployed app can deploy every integrated commit.

@@ -54,7 +54,7 @@ def main():
                     cwd=Path(directory),
                 )
                 assert (Path(directory) / "coloph-sync.toml").exists()
-                assert len(list((Path(directory) / ".agents" / "skills").glob("*/SKILL.md"))) == 4
+                assert len(list((Path(directory) / ".agents" / "skills").glob("*/SKILL.md"))) == 5
     else:
         run("uv", "publish", *(str(path) for path in artifacts()))
 
