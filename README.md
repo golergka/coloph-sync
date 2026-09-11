@@ -75,9 +75,13 @@ At a deployment barrier, only its parent can merge until that parent has complet
 
 The command receives `COLOPH_SYNC_COMMIT`, `COLOPH_SYNC_ATTEMPT_ID`, `COLOPH_SYNC_RUN_ID`,
 `COLOPH_SYNC_DEPLOYED_COMMIT`, and `COLOPH_SYNC_CONTEXT=deploy`.
-Exit 0 confirms the complete release of the exact target. Nonzero leaves the attempt unconfirmed and stops the loop.
+Exit 0 confirms the project-defined delivery of the exact target. Nonzero leaves the attempt unconfirmed and stops the loop.
 Repeated calls with the same attempt ID and target must reconcile or resume safely, including remote work still running.
 The command owns all infrastructure details. It must not publish the coordinator's deployment refs.
+
+For a versioned package, delivery does not have to publish every commit. The project can use a version change as its release request.
+The command publishes only a new declared version. If the version is unchanged, the command can complete without publication.
+The project owns its version policy and registry checks. Coloph-sync does not select or increase versions.
 
 The engine persists completion before publishing an immutable `deploy/<attempt-id>` tag and the moving `deployed` tag.
 Publication retries do not redeploy a completed attempt. Concurrent changes to the moving tag fail explicitly.
