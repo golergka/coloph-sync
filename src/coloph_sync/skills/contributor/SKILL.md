@@ -1,6 +1,6 @@
 ---
 name: coloph-sync-contributor
-description: Commit work, repair a failed check, or resolve an integration conflict in a repository managed by coloph-sync. Use during branch development; use coloph-sync-finish for end-to-end closeout.
+description: Work on any task that changes version-controlled files in a repository managed by coloph-sync, including committing work, repairing a failed check, or resolving an integration conflict. Use coloph-sync-finish for end-to-end closeout.
 ---
 
 Keep work in the assigned branch. Read the repository's check and Git instructions.
@@ -17,7 +17,7 @@ A check exit of 1 saves a failed commit. Read its diagnostic, repair the work, a
 A rejected hook does not create a commit. Repair the stated error and retry.
 Do not bypass the hook or rewrite check results.
 
-Read `coloph-sync status`. A conflict belongs to the branch owner.
+Read `uv run coloph-sync status`. A conflict belongs to the branch owner.
 Follow the repository's Git procedure to integrate its local integration branch. Read both sides from their shared parent, preserve both intended behaviors, resolve the conflict, and run the relevant checks. Use a real merge; do not rebase or recreate selected changes.
 Do not operate the coordinator while repairing your branch.
 The coordinator attempts merges; it does not resolve conflicts or write repairs.

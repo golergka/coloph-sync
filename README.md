@@ -6,24 +6,16 @@ Licensed under GPL-3.0-only.
 
 ## Install and configure
 
-Python projects can pin the CLI as a development dependency and commit the updated project file and lockfile:
+Add the CLI to the repository's development dependencies and commit the updated project file and lockfile:
 
 ```sh
-uv add --dev 'coloph-sync==0.3.1'
+uv add --dev 'coloph-sync==0.3.2'
 uv run coloph-sync init
 ```
 
-Other projects can install the same fixed version as an isolated tool:
-
-```sh
-uv tool install 'coloph-sync==0.3.1'
-coloph-sync init
-```
-
-To run a fixed version without installing it, use `uvx --from 'coloph-sync==0.3.1' coloph-sync`.
 The CLI is implemented in Python, but host projects integrate through executable commands and can use any language.
 
-`init` installs the three agent workflows under `skills/` and creates `coloph-sync.toml` if absent:
+`init` installs the three agent workflows under `.agents/skills/` and creates `coloph-sync.toml` if absent:
 
 ```toml
 main_ref = "main"
@@ -34,10 +26,11 @@ integration_check = ["./scripts/check", "integration"]
 deploy_command = ["./scripts/deploy"]
 ```
 
-Replace the example commands with real project commands, then run `coloph-sync install-hooks`.
+Replace the example commands with real project commands, then run `uv run coloph-sync install-hooks`.
 Existing commit-msg hooks run before the managed hook; uninstall restores them.
-Configure the agent host to discover `skills/` if needed. Identical installed workflows are left alone; a different existing workflow stops initialization before any file is written.
-Run `coloph-sync run --once` in the clean main checkout, or `coloph-sync run` for continuous operation.
+Codex discovers the workflows from `.agents/skills/`. Identical installed workflows are left alone. `init` stops before writing if an existing workflow differs; `install-skills` explicitly replaces stale workflow copies with the installed package versions.
+Every other CLI command first compares these three small files with the installed package and exits with recovery instructions if they are missing or stale.
+Run `uv run coloph-sync run --once` in the clean main checkout, or `uv run coloph-sync run` for continuous operation.
 Use `run --branch NAME` to restrict integration to one local worktree branch.
 Use `run --push-deploy-only` to skip branch merges, run the integration check, push main, and deploy it.
 Deployment is required. Remote branches and cloud supervision are outside this release.
@@ -90,23 +83,23 @@ The engine persists completion before publishing an immutable `deploy/<attempt-i
 Publication retries do not redeploy a completed attempt. Concurrent changes to the moving tag fail explicitly.
 A lost success acknowledgment remains uncertain and requires reconciliation by the deployment command on retry.
 An unfinished attempt is resolved before another integration cycle. Rollback is not automatic.
-Manual deployment uses `coloph-sync deploy` and the same lock and records.
-Explicit recovery uses `coloph-sync deploy --commit SHA --rollback`. The command receives `COLOPH_SYNC_ROLLBACK=1`.
+Manual deployment uses `uv run coloph-sync deploy` and the same lock and records.
+Explicit recovery uses `uv run coloph-sync deploy --commit SHA --rollback`. The command receives `COLOPH_SYNC_ROLLBACK=1`.
 The deployment command owns whether that recovery is safe. Normal runs never select rollback.
 
 ## Status and agents
 
 ```sh
-coloph-sync status
-coloph-sync --json status --commit <sha>
-coloph-sync wait --commit <sha> --until deployed
-coloph-sync stop
-coloph-sync logs
-coloph-sync init
-coloph-sync install-skills
-coloph-sync skill contributor
-coloph-sync skill operator
-coloph-sync skill finish
+uv run coloph-sync status
+uv run coloph-sync --json status --commit <sha>
+uv run coloph-sync wait --commit <sha> --until deployed
+uv run coloph-sync stop
+uv run coloph-sync logs
+uv run coloph-sync init
+uv run coloph-sync install-skills
+uv run coloph-sync skill contributor
+uv run coloph-sync skill operator
+uv run coloph-sync skill finish
 ```
 
 The installed skill descriptions tell agents when to use contributor, operator, and finish workflows.

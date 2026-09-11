@@ -13,7 +13,7 @@ def test_unchanged_version_only_verifies(monkeypatch):
     monkeypatch.setenv("COLOPH_SYNC_COMMIT", "target")
     monkeypatch.setattr(deploy, "run", lambda *args, **kwargs: calls.append(args) or "target\trefs/heads/main")
     monkeypatch.setattr(deploy, "remote_tag", lambda tag: "release")
-    monkeypatch.setattr(deploy, "published_versions", lambda: {"0.3.1"})
+    monkeypatch.setattr(deploy, "published_versions", lambda: {"0.3.2"})
 
     deploy.main()
 
@@ -25,20 +25,20 @@ def test_new_version_creates_release(monkeypatch):
     monkeypatch.setenv("COLOPH_SYNC_COMMIT", "target")
     monkeypatch.setattr(deploy, "run", lambda *args, **kwargs: calls.append(args) or "target\trefs/heads/main")
     monkeypatch.setattr(deploy, "remote_tag", lambda tag: None)
-    monkeypatch.setattr(deploy, "published_versions", lambda: {"0.3.0"})
+    monkeypatch.setattr(deploy, "published_versions", lambda: {"0.3.1"})
     monkeypatch.setattr(deploy, "finish_release", lambda tag: calls.append(("finish", tag)))
 
     deploy.main()
 
-    assert ("gh", "release", "create", "v0.3.1", "--target", "target", "--title", "v0.3.1", "--generate-notes") in calls
-    assert ("finish", "v0.3.1") in calls
+    assert ("gh", "release", "create", "v0.3.2", "--target", "target", "--title", "v0.3.2", "--generate-notes") in calls
+    assert ("finish", "v0.3.2") in calls
 
 
 def test_untagged_published_version_fails(monkeypatch):
     monkeypatch.setenv("COLOPH_SYNC_COMMIT", "target")
     monkeypatch.setattr(deploy, "run", lambda *args, **kwargs: "target\trefs/heads/main")
     monkeypatch.setattr(deploy, "remote_tag", lambda tag: None)
-    monkeypatch.setattr(deploy, "published_versions", lambda: {"0.3.1"})
+    monkeypatch.setattr(deploy, "published_versions", lambda: {"0.3.2"})
 
     with pytest.raises(SystemExit, match="already contains untagged version"):
         deploy.main()
