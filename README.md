@@ -52,6 +52,33 @@ Use `run --branch NAME` to restrict integration to one local worktree branch.
 Use `run --push-deploy-only` to skip branch merges, run the integration check, push main, and deploy it.
 A delivery command is required. Remote branches and cloud supervision are outside this release.
 
+## Usage patterns
+
+Different projects can use the same sync loop with different delivery policies.
+Coloph-sync coordinates the loop. The project commands define what a successful check and delivery mean.
+
+This repository is a versioned-package example. It uses deliberate semantic versions and does not publish every commit.
+Its deployment command publishes only when `pyproject.toml` contains a new version.
+For other commits, the command verifies `origin/main` and the existing package release.
+
+A continuously deployed web app can deploy every integrated commit instead.
+The [example project](example/README.md) shows this pattern with a deployment command that waits for a hosting service.
+The service must report the exact commit as live before the command succeeds.
+
+Coloph-sync owns these tasks:
+
+- Run the project commands at the configured stages.
+- Integrate eligible local worktree branches into the main branch.
+- Push the main branch and coordinate one delivery attempt at a time.
+- Record results and publish its coordination tags.
+
+The project owner supplies these parts:
+
+- Checks for commits, merges, and the integrated main branch.
+- The release or deployment policy.
+- An idempotent deployment command that reconciles retries.
+- Credentials, infrastructure access, and the definition of delivery success.
+
 Optional configuration: `preflight_command`, `deployed_ref` (default `deployed`), `deploy_tag_prefix` (default `deploy`),
 `check_timeout` and `deploy_timeout` (14400 seconds), `merge_timeout` (1500 seconds), and `interval` (60 seconds).
 Missing merge or integration commands use `commit_check`.
@@ -105,7 +132,8 @@ Exit 0 confirms the project-defined delivery of the exact target. Nonzero leaves
 Repeated calls with the same attempt ID and target must reconcile or resume safely, including remote work still running.
 The command owns all infrastructure details. It must not publish the coordinator's deployment refs.
 
-For a versioned package, delivery does not have to publish every commit. The project can use a version change as its release request.
+For a versioned package, delivery does not have to publish every commit. This repository demonstrates that pattern.
+The project can use a version change as its release request.
 The command publishes only a new declared version. If the version is unchanged, the command can complete without publication.
 The project owns its version policy and registry checks. Coloph-sync does not select or increase versions.
 
@@ -125,7 +153,6 @@ The deployment command owns whether that recovery is safe. Normal runs never sel
 ```sh
 coloph-sync status
 coloph-sync --json status --commit <sha>
-coloph-sync wait --commit <sha> --until deployed
 coloph-sync stop
 coloph-sync logs
 coloph-sync init

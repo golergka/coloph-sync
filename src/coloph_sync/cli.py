@@ -4,7 +4,6 @@ import argparse
 import json
 import subprocess
 import sys
-import time
 from importlib.resources import files
 from pathlib import Path
 
@@ -15,7 +14,10 @@ from .state import CommitState, read_state
 from .storage import read_json, write_json
 
 SKILLS = ("contributor", "operator", "finish")
-CONFIG_TEMPLATE = """main_ref = "main"
+CONFIG_TEMPLATE = """# Coloph-sync owns commit checks, integration, and calls to the deployment command.
+# This project owns the commands, release policy, deployment service, and success criteria.
+# A package can publish only after a version change. A continuously deployed app can deploy every integrated commit.
+main_ref = "main"
 remote = "origin"
 commit_check = ["./scripts/check", "commit"]
 merge_check = ["./scripts/check", "merge"]
@@ -153,13 +155,10 @@ def main(argv=None):
     state.add_argument("ref", nargs="?", default="HEAD")
     skill = sub.add_parser("skill", help="Print the bundled operating instructions")
     skill.add_argument("name", choices=SKILLS)
-    for name in ("status", "wait"):
-        p = sub.add_parser(name)
-        p.add_argument("--branch")
-        p.add_argument("--commit")
-        p.add_argument("--all", action="store_true")
-        p.add_argument("--until", choices=["merged", "deployed"], default="deployed")
-        p.add_argument("--timeout", type=int, default=14400)
+    status_parser = sub.add_parser("status")
+    status_parser.add_argument("--branch")
+    status_parser.add_argument("--commit")
+    status_parser.add_argument("--all", action="store_true")
     args = parser.parse_args(argv)
     try:
         if args.command == "init":
@@ -229,26 +228,17 @@ def main(argv=None):
             value = read_state(engine.git.message(args.ref))
             print(value.value if value else "unmarked")
         else:
-            deadline = time.monotonic() + args.timeout
-            while True:
-                branches = (
-                    engine.git.out("for-each-ref", "--format=%(refname:short)", "refs/heads/").splitlines()
-                    if args.all
-                    else [args.branch]
-                )
-                values = [status(engine, branch, args.commit) for branch in branches]
-                if args.json:
-                    print(json.dumps(values if args.all else values[0]))
-                else:
-                    for value in values:
-                        render(value)
-                if args.command != "wait" or all(value[args.until] for value in values):
-                    return 0
-                if any(value["verdict"] == "action needed" for value in values):
-                    return 1
-                if time.monotonic() >= deadline:
-                    return 1
-                time.sleep(min(5, max(0, deadline - time.monotonic())))
+            branches = (
+                engine.git.out("for-each-ref", "--format=%(refname:short)", "refs/heads/").splitlines()
+                if args.all
+                else [args.branch]
+            )
+            values = [status(engine, branch, args.commit) for branch in branches]
+            if args.json:
+                print(json.dumps(values if args.all else values[0]))
+            else:
+                for value in values:
+                    render(value)
         return 0
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as exc:
         print(str(exc), file=sys.stderr)

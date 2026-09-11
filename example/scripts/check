@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+# Replace this command with the web app's check command.
+npm test

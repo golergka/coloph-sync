@@ -16,7 +16,7 @@ Do not operate the coordinator from this workflow.
 Run `coloph-sync status` for the current branch, or select the intended commit explicitly. Distinguish integrated from delivered. A successful local commit is not completed work.
 Repair actionable branch failures through `coloph-sync-contributor`, then return here. If the coordinator has not checked the repaired tip, wait; do not treat the older failure as current.
 
-Use `coloph-sync wait --commit <sha>` for a short foreground wait. For a long or externally timed wait, use sparse host reminders: check once per wakeup, stay quiet while unchanged, and stop the reminder when delivery completes, waiting expires, or work is blocked. Expiry ends passive waiting; it does not cancel an already authorized repair.
+Use a sparse host reminder when integration or delivery is pending. Check once per wakeup and stay quiet while the state is unchanged. Stop the reminder when delivery completes, waiting expires, or work is blocked. Expiry ends passive waiting; it does not cancel an already authorized repair.
 
 After delivery, follow the repository's relevant validation procedure. Always tell the user how to test the delivered behavior manually, with concrete steps and expected results, whether or not you could perform that test yourself. A delivery record proves historical success, not current health.
 
