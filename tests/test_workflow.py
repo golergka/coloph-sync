@@ -5,7 +5,7 @@ from dataclasses import replace
 
 import pytest
 
-from coloph_sync.cli import install_skills, status
+from coloph_sync.cli import initialize, install_skills, main, status
 from coloph_sync.config import Config, load_config
 from coloph_sync.engine import Engine
 from coloph_sync.git import Git
@@ -184,6 +184,27 @@ def test_skill_install_is_repeatable_and_rejects_conflicts(tmp_path):
         install_skills(conflict_root)
     assert conflict.read_text() == "Host workflow\n"
     assert list((conflict_root / "skills").iterdir()) == [conflict.parent]
+
+
+def test_init_creates_config_and_skills_without_installing_hooks(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    assert (tmp_path / "coloph-sync.toml").exists()
+    assert len(list((tmp_path / "skills").glob("*/SKILL.md"))) == 3
+    assert not (tmp_path / ".git").exists()
+    capsys.readouterr()
+    assert main(["--json", "init"]) == 0
+    assert capsys.readouterr().out == '{"created": []}\n'
+
+
+def test_init_rejects_skill_conflict_before_creating_config(tmp_path):
+    conflict = tmp_path / "skills" / "coloph-sync-operator" / "SKILL.md"
+    conflict.parent.mkdir(parents=True)
+    conflict.write_text("Host workflow\n")
+    with pytest.raises(ValueError, match="Skill file differs"):
+        initialize(tmp_path / "coloph-sync.toml")
+    assert not (tmp_path / "coloph-sync.toml").exists()
+    assert conflict.read_text() == "Host workflow\n"
 
 
 def test_barrier_releases_only_after_deployment(project, tmp_path):

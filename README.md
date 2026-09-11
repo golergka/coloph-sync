@@ -6,13 +6,24 @@ Licensed under GPL-3.0-only.
 
 ## Install and configure
 
-Install from a release:
+Python projects can pin the CLI as a development dependency and commit the updated project file and lockfile:
 
 ```sh
-uv tool install git+https://github.com/golergka/coloph-sync@v0.2.0
+uv add --dev 'coloph-sync==0.3.0'
+uv run coloph-sync init
 ```
 
-Create `coloph-sync.toml` at the repository root:
+Other projects can install the same fixed version as an isolated tool:
+
+```sh
+uv tool install 'coloph-sync==0.3.0'
+coloph-sync init
+```
+
+To run a fixed version without installing it, use `uvx --from 'coloph-sync==0.3.0' coloph-sync`.
+The CLI is implemented in Python, but host projects integrate through executable commands and can use any language.
+
+`init` installs the three agent workflows under `skills/` and creates `coloph-sync.toml` if absent:
 
 ```toml
 main_ref = "main"
@@ -23,10 +34,9 @@ integration_check = ["./scripts/check", "integration"]
 deploy_command = ["./scripts/deploy"]
 ```
 
-Supply real executable check and deployment commands before installation.
-Run `coloph-sync install-hooks`. Existing commit-msg hooks run before the managed hook; uninstall restores them.
-Run `coloph-sync install-skills` to install the bundled agent workflows in the host project's `skills/` directory.
-Configure the agent host to discover that directory if needed. Identical files are left alone; a different existing skill stops installation before any file is written.
+Replace the example commands with real project commands, then run `coloph-sync install-hooks`.
+Existing commit-msg hooks run before the managed hook; uninstall restores them.
+Configure the agent host to discover `skills/` if needed. Identical installed workflows are left alone; a different existing workflow stops initialization before any file is written.
 Run `coloph-sync run --once` in the clean main checkout, or `coloph-sync run` for continuous operation.
 Use `run --branch NAME` to restrict integration to one local worktree branch.
 Use `run --push-deploy-only` to skip branch merges, run the integration check, push main, and deploy it.
@@ -85,6 +95,7 @@ coloph-sync --json status --commit <sha>
 coloph-sync wait --commit <sha> --until deployed
 coloph-sync stop
 coloph-sync logs
+coloph-sync init
 coloph-sync install-skills
 coloph-sync skill contributor
 coloph-sync skill operator
@@ -98,6 +109,8 @@ State and logs live in the shared Git directory, so linked worktrees see the sam
 The engine requires a POSIX host, Git, Python 3.12+, and the project's command dependencies.
 
 ## Development
+
+GitHub releases test and build the matching tag, then publish its wheel and source distribution to PyPI.
 
 ### Public writing
 

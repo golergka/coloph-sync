@@ -13,6 +13,9 @@ Preserve useful issue text and keep revisions targeted.
 Never publish links or references to private repositories in code, documentation, issues, pull requests, comments, or release notes.
 Public explanations must stand alone without private project context.
 
+Before a release, run `uv lock --check`, `uv run pytest -q`, `uv run ruff check .`, and `python scripts/release.py build --tag vX.Y.Z`.
+Release tags must match the package version and are immutable.
+
 Shadow mode and cross-machine handover, leases, and fencing were rejected.
 Do not reintroduce them unless the user explicitly changes that decision.
 

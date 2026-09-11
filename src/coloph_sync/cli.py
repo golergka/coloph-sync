@@ -15,15 +15,26 @@ from .state import CommitState, read_state
 from .storage import read_json, write_json
 
 SKILLS = ("contributor", "operator", "finish")
+CONFIG_TEMPLATE = """main_ref = "main"
+remote = "origin"
+commit_check = ["./scripts/check", "commit"]
+merge_check = ["./scripts/check", "merge"]
+integration_check = ["./scripts/check", "integration"]
+deploy_command = ["./scripts/deploy"]
+"""
 
 
-def install_skills(root: Path):
-    skill_files = {
+def _skill_files(root: Path):
+    return {
         root / "skills" / f"coloph-sync-{name}" / "SKILL.md": files("coloph_sync")
         .joinpath("skills", name, "SKILL.md")
         .read_text(encoding="utf-8")
         for name in SKILLS
     }
+
+
+def install_skills(root: Path):
+    skill_files = _skill_files(root)
     for path, content in skill_files.items():
         if path.exists() and path.read_text(encoding="utf-8") != content:
             raise ValueError(f"Skill file differs: {path}; reconcile or move it before installing")
@@ -33,6 +44,20 @@ def install_skills(root: Path):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding="utf-8")
             created.append(path)
+    return created
+
+
+def initialize(config: Path):
+    root = config.parent
+    skill_files = _skill_files(root)
+    for path, content in skill_files.items():
+        if path.exists() and path.read_text(encoding="utf-8") != content:
+            raise ValueError(f"Skill file differs: {path}; reconcile or move it before initializing")
+    created = []
+    if not config.exists():
+        config.write_text(CONFIG_TEMPLATE, encoding="utf-8")
+        created.append(config)
+    created.extend(install_skills(root))
     return created
 
 
@@ -108,6 +133,7 @@ def main(argv=None):
     parser.add_argument("--config", type=Path)
     parser.add_argument("--json", action="store_true")
     sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("init", help="Create configuration and install host-project agent workflows")
     run = sub.add_parser("run")
     run.add_argument("--once", action="store_true")
     run.add_argument("--branch", help="Restrict integration to one local worktree branch")
@@ -136,6 +162,19 @@ def main(argv=None):
         p.add_argument("--timeout", type=int, default=14400)
     args = parser.parse_args(argv)
     try:
+        if args.command == "init":
+            config = args.config.resolve() if args.config else Path.cwd() / "coloph-sync.toml"
+            root = config.parent
+            created = initialize(config)
+            if args.json:
+                print(json.dumps({"created": [str(path.relative_to(root)) for path in created]}))
+            else:
+                for path in created:
+                    print(f"Created {path.relative_to(root)}")
+                if not created:
+                    print("Project files are already initialized")
+                print("Install hooks after configuring real project commands: coloph-sync install-hooks")
+            return 0
         if args.command == "message-state":
             state = read_state(sys.stdin.read())
             print(state.value if state else "unmarked")
@@ -156,7 +195,7 @@ def main(argv=None):
             return check(config, args.message.resolve())
         if args.command == "install-hooks":
             install(config)
-            print("Installed commit-msg hook. Link agent instructions to: coloph-sync skill contributor")
+            print("Installed commit-msg hook. Run coloph-sync init to install the agent workflows")
             return 0
         if args.command == "uninstall-hooks":
             uninstall(config)
