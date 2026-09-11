@@ -179,6 +179,7 @@ def test_skill_install_is_repeatable_and_updates_stale_files(tmp_path):
     assert {path.parent.name for path in created} == {
         "sync-contributor",
         "sync-finish",
+        "sync-merge-main",
         "sync-operator",
     }
     assert install_skills(tmp_path) == []
@@ -189,7 +190,7 @@ def test_skill_install_is_repeatable_and_updates_stale_files(tmp_path):
     conflict.write_text("Host workflow\n")
     updated = install_skills(conflict_root)
     assert conflict in updated
-    assert len(updated) == 3
+    assert len(updated) == 4
     assert conflict.read_text() != "Host workflow\n"
 
     legacy = tmp_path / ".agents" / "skills" / "coloph-sync-finish" / "SKILL.md"
@@ -215,7 +216,7 @@ def test_init_creates_config_and_skills_without_installing_hooks(tmp_path, monke
     monkeypatch.chdir(tmp_path)
     assert main(["init"]) == 0
     assert (tmp_path / "coloph-sync.toml").exists()
-    assert len(list((tmp_path / ".agents" / "skills").glob("*/SKILL.md"))) == 3
+    assert len(list((tmp_path / ".agents" / "skills").glob("*/SKILL.md"))) == 4
     assert not (tmp_path / ".git").exists()
     assert "Choose a delivery pattern" in capsys.readouterr().out
     assert main(["--json", "init"]) == 0
