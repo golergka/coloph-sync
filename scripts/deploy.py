@@ -3,6 +3,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 import time
 import tomllib
 import urllib.error
@@ -12,6 +13,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGE = "coloph-sync"
 SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+INSTALL_TIMEOUT = 720
+INSTALL_INTERVAL = 10
 
 
 def run(*command, capture=False):
@@ -69,17 +72,44 @@ def release_run(tag):
     raise SystemExit(f"no publication run found for {tag}")
 
 
+def install_published(version):
+    with tempfile.TemporaryDirectory() as directory:
+        return subprocess.run(
+            (
+                "uv",
+                "run",
+                "--isolated",
+                "--no-project",
+                "--no-cache",
+                "--with",
+                f"{PACKAGE}=={version}",
+                "coloph-sync",
+                "init",
+            ),
+            cwd=directory,
+            text=True,
+            capture_output=True,
+        )
+
+
+def wait_for_install(version):
+    deadline = time.time() + INSTALL_TIMEOUT
+    while True:
+        result = install_published(version)
+        if result.returncode == 0:
+            return
+        if time.time() >= deadline:
+            raise SystemExit(f"{version} is not installable from PyPI: {result.stderr.strip()}")
+        time.sleep(INSTALL_INTERVAL)
+
+
 def finish_release(tag):
     item = release_run(tag)
     if item["status"] != "completed":
         run("gh", "run", "watch", str(item["databaseId"]), "--exit-status")
     elif item["conclusion"] != "success":
         raise SystemExit(f"publication run {item['databaseId']} ended with {item['conclusion']}")
-    for _ in range(30):
-        if tag[1:] in published_versions():
-            return
-        time.sleep(2)
-    raise SystemExit(f"{tag[1:]} is not visible on PyPI after publication")
+    wait_for_install(tag[1:])
 
 
 def main():
@@ -98,6 +128,8 @@ def main():
         run("git", "merge-base", "--is-ancestor", tagged, target)
         if current not in releases:
             finish_release(tag)
+        else:
+            wait_for_install(current)
         print(f"Verified {target[:10]}; {tag} is already published")
         return
 
