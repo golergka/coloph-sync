@@ -9,13 +9,13 @@ Licensed under GPL-3.0-only.
 Add the CLI to the repository's development dependencies and commit the updated project file and lockfile:
 
 ```sh
-uv add --dev 'coloph-sync==0.3.3'
+uv add --dev coloph-sync
 uv run coloph-sync init
 ```
 
 The CLI is implemented in Python, but host projects integrate through executable commands and can use any language.
 
-`init` installs the three agent workflows under `.agents/skills/` and creates `coloph-sync.toml` if absent:
+`init` installs the four agent workflows under `.agents/skills/` and creates `coloph-sync.toml` if absent:
 
 ```toml
 main_ref = "main"
@@ -45,35 +45,10 @@ Use `run --branch NAME` to restrict integration to one local worktree branch.
 Use `run --push-deploy-only` to skip branch merges, run the integration check, push main, and deploy it.
 A delivery command is required. Remote branches and cloud supervision are outside this release.
 
-## Usage patterns
-
-Different projects can use the same sync loop with different delivery policies.
-Coloph-sync coordinates the loop. The project commands define what a successful check and delivery mean.
-
-This repository is a versioned-package example. It uses deliberate semantic versions and does not publish every commit.
-Its deployment command publishes only when `pyproject.toml` contains a new version.
-For other commits, the command verifies `origin/main` and the existing package release.
-
-A continuously deployed web app can deploy every integrated commit instead.
-The [example project](example/README.md) shows this pattern with a deployment command that waits for a hosting service.
-The service must report the exact commit as live before the command succeeds.
-
-Coloph-sync owns these tasks:
-
-- Run the project commands at the configured stages.
-- Integrate eligible local worktree branches into the main branch.
-- Push the main branch and coordinate one delivery attempt at a time.
-- Record results and publish its coordination tags.
-
-The project owner supplies these parts:
-
-- Checks for commits, merges, and the integrated main branch.
-- The release or deployment policy.
-- An idempotent deployment command that reconciles retries.
-- Credentials, infrastructure access, and the definition of delivery success.
-
 Optional configuration: `preflight_command`, `deployed_ref` (default `deployed`), `deploy_tag_prefix` (default `deploy`),
-`check_timeout` and `deploy_timeout` (14400 seconds), `merge_timeout` (1500 seconds), and `interval` (60 seconds).
+`check_timeout` and `deploy_timeout` (14400 seconds), `merge_timeout` (1500 seconds), `interval` (60 seconds), and
+`live_output_limit` (65536 characters). When a project command exceeds `live_output_limit`, coloph-sync continues to
+write its complete output to the run log, prints the log path once, and prints the final 4096 characters when it ends.
 Missing merge or integration commands use `commit_check`.
 `coloph-sync.local.toml` overrides local configuration. Unknown keys fail. `--config PATH` selects another root.
 Secrets belong in the command environment, not the checked-in configuration.
@@ -113,6 +88,7 @@ Older failed checkpoints do not block a later passed tip. All incoming commits m
 Fast-forward merges retain the original commit and its state; the integration check still checks the combined checkout.
 
 The engine discovers local worktrees, sorts their branches, and attempts ordinary Git merges.
+It skips a branch while its linked worktree is dirty and reports `worktree is dirty`; clean the worktree before the next cycle.
 It skips blocked tips and isolates merge conflicts. Metadata failures retry after the branch changes.
 Conflicts retry after either the branch or target changes. Timeouts retry on the next cycle.
 At a deployment barrier, only its parent can merge until that parent has completed deployment.
@@ -151,12 +127,13 @@ uv run coloph-sync logs
 uv run coloph-sync init
 uv run coloph-sync install-skills
 uv run coloph-sync skill contributor
+uv run coloph-sync skill merge-main
 uv run coloph-sync skill operator
 uv run coloph-sync skill finish
 ```
 
-The installed skill descriptions tell agents when to use contributor, operator, and finish workflows.
-Their installed names are `sync-contributor`, `sync-operator`, and `sync-finish`.
+The installed skill descriptions tell agents when to use contributor, merge-main, operator, and finish workflows.
+Their installed names are `sync-contributor`, `sync-merge-main`, `sync-operator`, and `sync-finish`.
 Keep project-specific checks, delivery implementation, reviewers, and manual validation procedures in the project.
 Stop drains the current cycle. SIGTERM also drains. A forced interruption cannot cancel remote deployment work reliably.
 State and logs live in the shared Git directory, so linked worktrees see the same results.

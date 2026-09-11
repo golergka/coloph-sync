@@ -96,6 +96,30 @@ def test_branch_filter_preserves_other_worktrees(project, tmp_path):
     assert not git.ancestor("excluded", "main")
 
 
+def test_dirty_worktree_is_skipped_until_clean(project, tmp_path):
+    config, git = project
+    child = tmp_path / "child"
+    git.out("worktree", "add", "-b", "feature", str(child))
+    branch = Git(child)
+    commit(branch, "feature")
+    (child / "uncommitted").write_text("uncommitted")
+
+    engine = Engine(config)
+    engine.merge_in()
+
+    entry = engine.report["branches"]["feature"]
+    assert not git.ancestor("feature", "main")
+    assert entry["merge_status"] == "not_merged"
+    assert entry["merge_reason"] == "worktree is dirty"
+    assert entry["reason_code"] == "dirty"
+    assert entry["last_merge_attempt"]["outcome"] == "skipped"
+
+    (child / "uncommitted").unlink()
+    engine.merge_in()
+
+    assert git.ancestor("feature", "main")
+
+
 def test_push_deploy_only_skips_merges_but_runs_integration_check(project, monkeypatch):
     config, _ = project
     engine = Engine(config)
@@ -179,6 +203,7 @@ def test_skill_install_is_repeatable_and_updates_stale_files(tmp_path):
     assert {path.parent.name for path in created} == {
         "sync-contributor",
         "sync-finish",
+        "sync-merge-main",
         "sync-operator",
     }
     assert install_skills(tmp_path) == []
@@ -189,7 +214,7 @@ def test_skill_install_is_repeatable_and_updates_stale_files(tmp_path):
     conflict.write_text("Host workflow\n")
     updated = install_skills(conflict_root)
     assert conflict in updated
-    assert len(updated) == 3
+    assert len(updated) == 4
     assert conflict.read_text() != "Host workflow\n"
 
     legacy = tmp_path / ".agents" / "skills" / "coloph-sync-finish" / "SKILL.md"
@@ -215,7 +240,7 @@ def test_init_creates_config_and_skills_without_installing_hooks(tmp_path, monke
     monkeypatch.chdir(tmp_path)
     assert main(["init"]) == 0
     assert (tmp_path / "coloph-sync.toml").exists()
-    assert len(list((tmp_path / ".agents" / "skills").glob("*/SKILL.md"))) == 3
+    assert len(list((tmp_path / ".agents" / "skills").glob("*/SKILL.md"))) == 4
     assert not (tmp_path / ".git").exists()
     assert "Choose a delivery pattern" in capsys.readouterr().out
     assert main(["--json", "init"]) == 0
@@ -335,6 +360,31 @@ def test_config_requires_deployment(tmp_path):
     path.write_text('commit_check = ["true"]\n')
     with pytest.raises(ValueError, match="deploy_command"):
         load_config(path)
+
+
+def test_config_requires_positive_live_output_limit(tmp_path):
+    path = tmp_path / "coloph-sync.toml"
+    path.write_text('commit_check = ["true"]\ndeploy_command = ["true"]\nlive_output_limit = 0\n')
+
+    with pytest.raises(ValueError, match="live_output_limit"):
+        load_config(path)
+
+
+def test_command_bounds_live_output_and_keeps_complete_log(project, capsys):
+    config, git = project
+    command = (sys.executable, "-c", "print('first'); print('second'); print('third')")
+    engine = Engine(replace(config, live_output_limit=8))
+
+    engine.command(command, "integration")
+
+    log = git.common_dir() / f"coloph-sync-{engine.run_id}.log"
+    output = capsys.readouterr().out
+    assert output.startswith(
+        f"first\nse\nLive output truncated after 8 characters. Full log: {log}\nFinal output tail:\n"
+    )
+    assert output.endswith("first\nsecond\nthird\n")
+    assert output.count("Live output truncated") == 1
+    assert log.read_text().endswith("first\nsecond\nthird\n")
 
 
 def test_stop_drains_owned_cycle(project, monkeypatch):
