@@ -5,6 +5,7 @@ from dataclasses import replace
 
 import pytest
 
+from coloph_sync.adoption import candidates, hint
 from coloph_sync.cli import check_skills, initialize, install_skills, main, status
 from coloph_sync.config import Config, load_config
 from coloph_sync.engine import Engine
@@ -220,7 +221,84 @@ def test_init_creates_config_and_skills_without_installing_hooks(tmp_path, monke
     assert not (tmp_path / ".git").exists()
     assert "Choose a delivery pattern" in capsys.readouterr().out
     assert main(["--json", "init"]) == 0
-    assert capsys.readouterr().out == '{"created": []}\n'
+    assert capsys.readouterr().out == '{"created": [], "adoption_candidates": []}\n'
+
+
+def test_install_reports_legacy_worktree_branches(project, tmp_path, monkeypatch, capsys):
+    config, git = project
+    child = tmp_path / "child"
+    git.out("worktree", "add", "-b", "legacy", str(child))
+    branch = Git(child)
+    branch.out("commit", "--allow-empty", "-m", "Before coloph-sync")
+
+    (config.root / "coloph-sync.toml").write_text('commit_check = ["true"]\ndeploy_command = ["true"]\n')
+    install_skills(config.root)
+    monkeypatch.chdir(config.root)
+    assert main(["install-hooks"]) == 0
+    output = capsys.readouterr().out
+    assert candidates(git, "main") == ["legacy"]
+    assert "Existing worktree branches may need adoption: legacy" in output
+    assert "uv run coloph-sync adopt --all" in output
+
+
+def test_adoption_hint_truncates_branch_names(monkeypatch):
+    monkeypatch.setattr("coloph_sync.adoption.candidates", lambda *_: [f"branch-{number}" for number in range(9)])
+
+    output = hint(None, "main")
+
+    assert "branch-7" in output
+    assert "branch-8" not in output
+    assert "and 1 more" in output
+
+
+def test_adopt_checks_and_merges_a_legacy_branch(project, tmp_path, monkeypatch):
+    config, git = project
+    child = tmp_path / "child"
+    git.out("worktree", "add", "-b", "legacy", str(child))
+    branch = Git(child)
+    branch.out("commit", "--allow-empty", "-m", "Before coloph-sync")
+    legacy = branch.out("rev-parse", "HEAD")
+    (config.root / "coloph-sync.toml").write_text('commit_check = ["true"]\ndeploy_command = ["true"]\n')
+    git.out("add", "coloph-sync.toml")
+    git.out("commit", "-m", "Configure coloph-sync")
+    install_skills(config.root)
+    git.out("add", ".agents")
+    git.out("commit", "-m", "Install coloph-sync workflows")
+    monkeypatch.chdir(config.root)
+    assert main(["install-hooks"]) == 0
+
+    assert main(["adopt", "--all"]) == 0
+    assert git.ancestor(legacy, "main")
+    assert read_state(git.message("HEAD")) == CommitState.PASSED
+    record = read_json(git.common_dir() / "coloph-sync-adoptions.json")["adoptions"][legacy]
+    assert record["branch"] == "legacy"
+    assert record["merged"] == git.resolve("main")
+    assert candidates(git, "main") == []
+
+
+def test_adopt_aborts_when_the_normal_merge_check_fails(project, tmp_path, monkeypatch):
+    config, git = project
+    child = tmp_path / "child"
+    git.out("worktree", "add", "-b", "legacy", str(child))
+    branch = Git(child)
+    branch.out("commit", "--allow-empty", "-m", "Before coloph-sync")
+    legacy = branch.out("rev-parse", "HEAD")
+    command = [sys.executable, "-c", "raise SystemExit(1)"]
+    (config.root / "coloph-sync.toml").write_text(
+        f"commit_check = {json.dumps(command)}\ndeploy_command = [\"true\"]\n"
+    )
+    git.out("add", "coloph-sync.toml")
+    git.out("commit", "-m", "Configure coloph-sync")
+    install_skills(config.root)
+    git.out("add", ".agents")
+    git.out("commit", "-m", "Install coloph-sync workflows")
+    monkeypatch.chdir(config.root)
+    assert main(["install-hooks"]) == 0
+
+    assert main(["adopt", "--all"]) == 2
+    assert not git.ancestor(legacy, "main")
+    assert not git.resolve("MERGE_HEAD")
+    assert not (git.common_dir() / "coloph-sync-adoptions.json").exists()
 
 
 def test_init_rejects_skill_conflict_before_creating_config(tmp_path):

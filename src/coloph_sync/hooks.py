@@ -11,6 +11,22 @@ from .state import CommitState, read_state, write_state
 from .storage import lock, write_json
 
 
+def managed_hook_path(config: Config) -> Path:
+    git = Git(config.root)
+    custom = git.result("config", "--get", "core.hooksPath")
+    if custom.returncode not in (0, 1):
+        custom.check_returncode()
+    hooks = Path(custom.stdout.strip()) if custom.returncode == 0 else git.common_dir() / "hooks"
+    if not hooks.is_absolute():
+        hooks = config.root / hooks
+    return hooks / "commit-msg"
+
+
+def managed_hook_installed(config: Config) -> bool:
+    hook = managed_hook_path(config)
+    return hook.exists() and "# coloph-sync managed hook" in hook.read_text()
+
+
 def check(config: Config, message_path: Path) -> int:
     git = Git(config.root)
     local = Path(git.out("rev-parse", "--absolute-git-dir"))
@@ -20,7 +36,7 @@ def check(config: Config, message_path: Path) -> int:
         merge = git.resolve("MERGE_HEAD") is not None
         if merge:
             parent_state = read_state(git.message("HEAD"))
-            if parent_state in (None, CommitState.WIP, CommitState.FAILED):
+            if parent_state in (None, CommitState.WIP, CommitState.FAILED) and not os.environ.get("COLOPH_SYNC_ADOPTION"):
                 raise ValueError(
                     "Finish the current commit checks before merging; a checked dont-merge scaffold is allowed"
                 )
@@ -65,17 +81,10 @@ def check(config: Config, message_path: Path) -> int:
 
 
 def install(config: Config):
-    git = Git(config.root)
-    custom = git.result("config", "--get", "core.hooksPath")
-    if custom.returncode not in (0, 1):
-        custom.check_returncode()
-    hooks = Path(custom.stdout.strip()) if custom.returncode == 0 else git.common_dir() / "hooks"
-    if not hooks.is_absolute():
-        hooks = config.root / hooks
-    hooks.mkdir(parents=True, exist_ok=True)
-    hook = hooks / "commit-msg"
+    hook = managed_hook_path(config)
+    hook.parent.mkdir(parents=True, exist_ok=True)
     signature = "# coloph-sync managed hook"
-    previous = hooks / "commit-msg.before-coloph-sync"
+    previous = hook.parent / "commit-msg.before-coloph-sync"
     if hook.exists() and signature not in hook.read_text():
         if previous.exists():
             raise ValueError(f"Cannot preserve another existing hook at {previous}")
@@ -92,12 +101,8 @@ def install(config: Config):
 
 
 def uninstall(config: Config):
-    git = Git(config.root)
-    custom = git.result("config", "--get", "core.hooksPath")
-    hooks = Path(custom.stdout.strip()) if custom.returncode == 0 else git.common_dir() / "hooks"
-    if not hooks.is_absolute():
-        hooks = config.root / hooks
-    hook, previous = hooks / "commit-msg", hooks / "commit-msg.before-coloph-sync"
+    hook = managed_hook_path(config)
+    previous = hook.parent / "commit-msg.before-coloph-sync"
     if hook.exists() and "# coloph-sync managed hook" in hook.read_text():
         hook.unlink()
         if previous.exists():
