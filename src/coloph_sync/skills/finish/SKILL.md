@@ -27,6 +27,8 @@ Report exactly these four parts:
 1. Work directly completed, including verification and delivery state.
 2. How the user can test it manually, including expected results.
 3. Original scope of the chat and material changes to that scope.
-4. Work still remaining, including blocked tests, barrier-held work, the next action, and whether the chat is safe to close.
+4. Work still remaining, blocked validation, barrier-held successors, and the next responsible action.
 
-Do not claim completion or state that the chat is safe to close while any requested outcome, required validation, or barrier-held successor remains unresolved.
+Reconcile every major requested outcome as delivered, partially delivered, blocked, deferred, superseded, or intentionally out of scope. Do not claim completion while any requested outcome, required validation, or barrier-held successor remains unresolved.
+
+End with either `Next action: ...` or `Everything requested here is implemented, there are no follow-ups, and this chat is safe to close.`
