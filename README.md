@@ -9,7 +9,7 @@ Licensed under GPL-3.0-only.
 Add the CLI to the repository's development dependencies and commit the updated project file and lockfile:
 
 ```sh
-uv add --dev 'coloph-sync==0.3.2'
+uv add --dev coloph-sync
 uv run coloph-sync init
 ```
 
