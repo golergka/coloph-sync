@@ -127,7 +127,6 @@ The deployment command owns whether that recovery is safe. Normal runs never sel
 ```sh
 coloph-sync status
 coloph-sync --json status --commit <sha>
-coloph-sync wait --commit <sha> --until deployed
 coloph-sync stop
 coloph-sync logs
 coloph-sync init
