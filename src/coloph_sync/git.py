@@ -84,3 +84,6 @@ class Git:
             if branch.startswith("refs/heads/") and Path(path).is_dir() and Path(path).resolve() != self.root:
                 result[branch.removeprefix("refs/heads/")] = Path(path)
         return result
+
+    def worktree_is_clean(self, path):
+        return not self.out("-C", str(path), "status", "--porcelain")

@@ -86,6 +86,7 @@ Older failed checkpoints do not block a later passed tip. All incoming commits m
 Fast-forward merges retain the original commit and its state; the integration check still checks the combined checkout.
 
 The engine discovers local worktrees, sorts their branches, and attempts ordinary Git merges.
+It skips a branch while its linked worktree is dirty and reports `worktree is dirty`; clean the worktree before the next cycle.
 It skips blocked tips and isolates merge conflicts. Metadata failures retry after the branch changes.
 Conflicts retry after either the branch or target changes. Timeouts retry on the next cycle.
 At a deployment barrier, only its parent can merge until that parent has completed deployment.

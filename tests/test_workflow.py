@@ -96,6 +96,30 @@ def test_branch_filter_preserves_other_worktrees(project, tmp_path):
     assert not git.ancestor("excluded", "main")
 
 
+def test_dirty_worktree_is_skipped_until_clean(project, tmp_path):
+    config, git = project
+    child = tmp_path / "child"
+    git.out("worktree", "add", "-b", "feature", str(child))
+    branch = Git(child)
+    commit(branch, "feature")
+    (child / "uncommitted").write_text("uncommitted")
+
+    engine = Engine(config)
+    engine.merge_in()
+
+    entry = engine.report["branches"]["feature"]
+    assert not git.ancestor("feature", "main")
+    assert entry["merge_status"] == "not_merged"
+    assert entry["merge_reason"] == "worktree is dirty"
+    assert entry["reason_code"] == "dirty"
+    assert entry["last_merge_attempt"]["outcome"] == "skipped"
+
+    (child / "uncommitted").unlink()
+    engine.merge_in()
+
+    assert git.ancestor("feature", "main")
+
+
 def test_push_deploy_only_skips_merges_but_runs_integration_check(project, monkeypatch):
     config, _ = project
     engine = Engine(config)

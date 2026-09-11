@@ -107,7 +107,7 @@ class Engine:
     def merge_in(self):
         self.save("merge")
         entries = self.report.setdefault("branches", {})
-        for branch in sorted(self.git.worktrees()):
+        for branch, path in sorted(self.git.worktrees().items()):
             if branch == self.config.main_ref:
                 continue
             if self.branch is not None and branch != self.branch:
@@ -135,6 +135,9 @@ class Engine:
             outcome = "skipped"
             if self.git.ancestor(tip, target):
                 outcome = "already_merged"
+            elif not self.git.worktree_is_clean(path):
+                reason = "worktree is dirty"
+                entry["reason_code"] = "dirty"
             elif (
                 previous.get("branch_sha") == tip
                 and previous.get("merge_status") == "not_merged"
