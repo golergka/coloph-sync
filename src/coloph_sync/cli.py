@@ -139,13 +139,19 @@ def main(argv=None):
         if args.command == "init":
             config = args.config.resolve() if args.config else Path.cwd() / "coloph-sync.toml"
             root = config.parent
+            configured = config.exists()
             created = initialize(config)
+            hooks_installed = False
+            if configured and (root / ".git").exists():
+                install(load_config(config))
+                hooks_installed = True
             if args.json:
                 print(
                     json.dumps(
                         {
                             "created": [str(path.relative_to(root)) for path in created],
                             "adoption_candidates": candidates(Git(root), "main") if (root / ".git").exists() else [],
+                            "hooks_installed": hooks_installed,
                         }
                     )
                 )
@@ -154,8 +160,11 @@ def main(argv=None):
                     print(f"Created {path.relative_to(root)}")
                 if not created:
                     print("Project files are already initialized")
-                print("Choose a delivery pattern and configure project commands before installing hooks")
-                print("Then run: uv run coloph-sync install-hooks")
+                if hooks_installed:
+                    print("Installed commit-msg hook")
+                elif created:
+                    print("Choose a delivery pattern and configure project commands")
+                    print("Then run: uv run coloph-sync init")
                 if (root / ".git").exists():
                     message = hint(Git(root), "main")
                     if message:

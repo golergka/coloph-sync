@@ -246,7 +246,20 @@ def test_init_creates_config_and_skills_without_installing_hooks(tmp_path, monke
     assert not (tmp_path / ".git").exists()
     assert "Choose a delivery pattern" in capsys.readouterr().out
     assert main(["--json", "init"]) == 0
-    assert capsys.readouterr().out == '{"created": [], "adoption_candidates": []}\n'
+    assert capsys.readouterr().out == '{"created": [], "adoption_candidates": [], "hooks_installed": false}\n'
+
+
+def test_init_installs_hook_for_existing_valid_config(project, monkeypatch, capsys):
+    config, git = project
+    (config.root / "coloph-sync.toml").write_text('commit_check = ["true"]\ndeploy_command = ["true"]\n')
+    monkeypatch.chdir(config.root)
+
+    assert main(["init"]) == 0
+    assert "Installed commit-msg hook" in capsys.readouterr().out
+    assert "# coloph-sync managed hook" in (git.common_dir() / "hooks" / "commit-msg").read_text()
+
+    assert main(["init"]) == 0
+    assert not (git.common_dir() / "hooks" / "commit-msg.before-coloph-sync").exists()
 
 
 def test_install_reports_legacy_worktree_branches(project, tmp_path, monkeypatch, capsys):
