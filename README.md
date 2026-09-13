@@ -40,6 +40,7 @@ The managed commit hook enforces commit states, not worktree ownership. Configur
 
 Choose a project pattern and replace the example commands with real project commands. Document the project policy for agents.
 Then run `uv run coloph-sync init` again. It installs the shared commit hook when an existing valid configuration is present, so worktree setup scripts can always run this one command.
+When `core.hooksPath` is relative, installation makes it absolute so linked worktrees use the same hook directory.
 Existing commit-msg hooks run before the managed hook; uninstall restores them.
 Contributors work only in their assigned linked worktrees. Reserve the clean `main` checkout for the assigned coordinator.
 Codex discovers the installed workflows from `.agents/skills/`.
