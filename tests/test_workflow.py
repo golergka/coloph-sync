@@ -224,6 +224,8 @@ def test_skill_lifecycle_has_required_handoffs():
     assert "immediately use `sync-finish` in the same turn" in contributor
     assert "Do not give a final user handoff from this workflow" in contributor
     assert "Do not report completion while work is only locally clean" in finish
+    assert "it must continue through Step 5 production smoke, then\nStep 6 final executive summary" in finish
+    assert "include the concise Step 6 handoff first" in finish
     assert "Return to `sync-finish` in the same turn" in merge_main
     assert (root / "sync-merge-main" / "references" / "conflict-review.md").exists()
 
