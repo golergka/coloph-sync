@@ -79,6 +79,10 @@ def check(config: Config, message_path: Path) -> int:
 
 
 def install(config: Config):
+    git = Git(config.root)
+    custom = git.result("config", "--get", "core.hooksPath")
+    if custom.returncode not in (0, 1):
+        custom.check_returncode()
     hook = managed_hook_path(config)
     hook.parent.mkdir(parents=True, exist_ok=True)
     signature = "# coloph-sync managed hook"
@@ -96,6 +100,10 @@ def install(config: Config):
         'exec uv run coloph-sync hook "$@"\n'
     )
     hook.chmod(0o755)
+    # A relative hooksPath is interpreted from each worktree. Pin it to the
+    # installed directory so every linked worktree uses the same hook.
+    if custom.returncode == 0 and not Path(custom.stdout.strip()).is_absolute():
+        git.out("config", "core.hooksPath", str(hook.parent))
 
 
 def uninstall(config: Config):

@@ -204,6 +204,20 @@ def test_installer_preserves_existing_hook(project):
     assert hook.read_text() == original
 
 
+def test_installer_makes_relative_hooks_path_shared_by_worktrees(project, tmp_path):
+    config, git = project
+    child = tmp_path / "child"
+    git.out("worktree", "add", "-b", "feature", str(child))
+    git.out("config", "core.hooksPath", ".githooks")
+
+    install(config)
+
+    hooks = (config.root / ".githooks").resolve()
+    assert git.out("config", "--get", "core.hooksPath") == str(hooks)
+    assert Git(child).out("rev-parse", "--path-format=absolute", "--git-path", "hooks") == str(hooks)
+    assert (hooks / "commit-msg").exists()
+
+
 def test_hook_does_not_require_current_skills(project, monkeypatch):
     config, git = project
     message = git.root / "message"
