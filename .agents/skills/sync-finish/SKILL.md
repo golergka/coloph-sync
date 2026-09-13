@@ -95,9 +95,14 @@ Delete reminders by calling the automation API. Do not merely say that a reminde
 
 When the current tip was skipped or unchanged with `Merged: no`, delete the reminder, repair the stated blocker, and restart this workflow from the beginning. When a merge failure is repairable, this transition happens inside the current turn: follow `sync-merge-main` in full, return after validation and the merge commit, and continue closeout. Never replace the real merge with copying, restoring, cherry-picking, or recreating selected files or commits.
 
-When a wakeup observes both fields as `yes`, it is not done: complete delivered validation and any in-scope issue closeout in that same wakeup, then delete the reminder before responding. Do not answer with only a terse scheduler status such as “complete.” Delete a reminder only after closeout is complete, the bounded window expires, or repair is genuinely blocked. A later wakeup after successful closeout is stale: delete it and respond only with the completed closeout.
+When a reminder wakeup observes `Merged: yes` and `Deployed: yes`, it is not
+done. In that same wakeup it must continue through Step 5 production smoke, then
+Step 6 final executive summary. If the work is tied to an issue, follow the repository's issue-closeout rules after validation. Do not close an issue merely because deployment completed. Delete the reminder automation only after merge,
+deploy, production smoke, and any in-scope issue closeout are complete. A
+completion wakeup must not answer with only a terse scheduler status such as
+“complete”; include the concise Step 6 handoff first.
 
-## Validate delivery
+## Step 5: Validate delivery
 
 After both merge and deployment, follow the repository's relevant validation procedure. Test the changed behavior through the closest safe real user or operator path, not merely a health check or another local test. Examples include exercising the deployed UI, calling the supported deployed CLI or API, or observing the real runtime behavior and logs.
 
@@ -107,7 +112,7 @@ Run performance measurements only when the change affects performance-sensitive 
 
 If the work is tied to an issue, follow the repository's issue-closeout rules after validation. Do not close an issue merely because deployment completed.
 
-## Final report
+## Step 6: Final Executive Summary
 
 Keep the final handoff concise and assume the reader has no prior chat context. Inspect the whole task and branch history for remaining scope, including later commits held behind a deployment barrier. Report exactly:
 
