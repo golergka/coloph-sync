@@ -5,10 +5,11 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from coloph_install_skills.cli import main as install_skills
 
 import coloph_sync.cli as cli
 from coloph_sync.adoption import candidates, hint
-from coloph_sync.cli import check_skills, initialize, install_skills, main, status
+from coloph_sync.cli import main, status
 from coloph_sync.config import Config, load_config
 from coloph_sync.engine import Engine
 from coloph_sync.git import Git
@@ -203,45 +204,6 @@ def test_installer_preserves_existing_hook(project):
     assert hook.read_text() == original
 
 
-def test_skill_install_is_repeatable_and_updates_stale_files(tmp_path):
-    created = install_skills(tmp_path)
-    assert {path.parent.name for path in created} == {
-        "sync-contributor",
-        "sync-finish",
-        "sync-merge-main",
-        "sync-operator",
-        "sync-release",
-    }
-    assert install_skills(tmp_path) == []
-
-    conflict_root = tmp_path / "conflict"
-    conflict = conflict_root / ".agents" / "skills" / "sync-finish" / "SKILL.md"
-    conflict.parent.mkdir(parents=True)
-    conflict.write_text("Host workflow\n")
-    updated = install_skills(conflict_root)
-    assert conflict in updated
-    assert len(updated) == 5
-    assert conflict.read_text() != "Host workflow\n"
-
-    legacy = tmp_path / ".agents" / "skills" / "coloph-sync-finish" / "SKILL.md"
-    legacy.parent.mkdir(parents=True)
-    legacy.write_text("Old workflow\n")
-    install_skills(tmp_path)
-    assert not legacy.parent.exists()
-
-
-def test_skill_check_rejects_missing_and_stale_skills(tmp_path):
-    with pytest.raises(ValueError, match="skills are missing or out of date"):
-        check_skills(tmp_path)
-
-    install_skills(tmp_path)
-    check_skills(tmp_path)
-    (tmp_path / ".agents" / "skills" / "sync-finish" / "SKILL.md").write_text("stale\n")
-
-    with pytest.raises(ValueError, match="skills are missing or out of date"):
-        check_skills(tmp_path)
-
-
 def test_hook_does_not_require_current_skills(project, monkeypatch):
     config, git = project
     message = git.root / "message"
@@ -254,23 +216,33 @@ def test_hook_does_not_require_current_skills(project, monkeypatch):
 
 
 def test_skill_lifecycle_has_required_handoffs():
-    root = Path(__file__).parents[1] / "src" / "coloph_sync" / "skills"
-    contributor = (root / "contributor" / "SKILL.md").read_text()
-    finish = (root / "finish" / "SKILL.md").read_text()
-    merge_main = (root / "merge-main" / "SKILL.md").read_text()
+    root = Path(__file__).parents[1] / "src" / "coloph_sync" / "bundled_agent_skills"
+    contributor = (root / "sync-contributor" / "SKILL.md").read_text()
+    finish = (root / "sync-finish" / "SKILL.md").read_text()
+    merge_main = (root / "sync-merge-main" / "SKILL.md").read_text()
 
     assert "immediately use `sync-finish` in the same turn" in contributor
     assert "Do not give a final user handoff from this workflow" in contributor
     assert "Do not report completion while work is only locally clean" in finish
     assert "Return to `sync-finish` in the same turn" in merge_main
-    assert (root / "merge-main" / "references" / "conflict-review.md").exists()
+    assert (root / "sync-merge-main" / "references" / "conflict-review.md").exists()
+
+
+def test_shared_installer_copies_complete_skills_and_creates_claude_links(tmp_path):
+    assert install_skills(["--root", str(tmp_path)]) == 0
+    assert install_skills(["--root", str(tmp_path), "--check"]) == 0
+    assert (
+        tmp_path / ".agents" / "skills" / "sync-merge-main" / "references" / "conflict-review.md"
+    ).is_file()
+    assert (tmp_path / ".claude" / "skills" / "sync-contributor").readlink() == Path(
+        "../../.agents/skills/sync-contributor"
+    )
 
 
 def test_init_creates_config_and_skills_without_installing_hooks(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     assert main(["init"]) == 0
     assert (tmp_path / "coloph-sync.toml").exists()
-    assert len(list((tmp_path / ".agents" / "skills").glob("*/SKILL.md"))) == 5
     assert not (tmp_path / ".git").exists()
     assert "Choose a delivery pattern" in capsys.readouterr().out
     assert main(["--json", "init"]) == 0
@@ -285,7 +257,6 @@ def test_install_reports_legacy_worktree_branches(project, tmp_path, monkeypatch
     branch.out("commit", "--allow-empty", "-m", "Before coloph-sync")
 
     (config.root / "coloph-sync.toml").write_text('commit_check = ["true"]\ndeploy_command = ["true"]\n')
-    install_skills(config.root)
     monkeypatch.chdir(config.root)
     assert main(["install-hooks"]) == 0
     output = capsys.readouterr().out
@@ -314,9 +285,6 @@ def test_adopt_checks_and_merges_a_legacy_branch(project, tmp_path, monkeypatch)
     (config.root / "coloph-sync.toml").write_text('commit_check = ["true"]\ndeploy_command = ["true"]\n')
     git.out("add", "coloph-sync.toml")
     git.out("commit", "-m", "Configure coloph-sync")
-    install_skills(config.root)
-    git.out("add", ".agents")
-    git.out("commit", "-m", "Install coloph-sync workflows")
     monkeypatch.chdir(config.root)
     assert main(["install-hooks"]) == 0
 
@@ -342,9 +310,6 @@ def test_adopt_aborts_when_the_normal_merge_check_fails(project, tmp_path, monke
     )
     git.out("add", "coloph-sync.toml")
     git.out("commit", "-m", "Configure coloph-sync")
-    install_skills(config.root)
-    git.out("add", ".agents")
-    git.out("commit", "-m", "Install coloph-sync workflows")
     monkeypatch.chdir(config.root)
     assert main(["install-hooks"]) == 0
 
@@ -352,16 +317,6 @@ def test_adopt_aborts_when_the_normal_merge_check_fails(project, tmp_path, monke
     assert not git.ancestor(legacy, "main")
     assert not git.resolve("MERGE_HEAD")
     assert not (git.common_dir() / "coloph-sync-adoptions.json").exists()
-
-
-def test_init_rejects_skill_conflict_before_creating_config(tmp_path):
-    conflict = tmp_path / ".agents" / "skills" / "sync-operator" / "SKILL.md"
-    conflict.parent.mkdir(parents=True)
-    conflict.write_text("Host workflow\n")
-    with pytest.raises(ValueError, match="Skill file differs"):
-        initialize(tmp_path / "coloph-sync.toml")
-    assert not (tmp_path / "coloph-sync.toml").exists()
-    assert conflict.read_text() == "Host workflow\n"
 
 
 def test_barrier_releases_only_after_deployment(project, tmp_path):
@@ -519,7 +474,6 @@ def test_real_git_hook_and_saved_failure(project):
     )
     git.out("add", "coloph-sync.toml")
     git.out("commit", "-m", "Configure\n\nSync-State: passed")
-    install_skills(config.root)
     install(config)
     git.out("commit", "--allow-empty", "-m", "Review this")
     assert read_state(git.message("HEAD")) == CommitState.FAILED
@@ -535,7 +489,6 @@ def test_real_merge_hook_rejects_automatic_negative_verdict(project, tmp_path):
     )
     git.out("add", "coloph-sync.toml")
     git.out("commit", "-m", "Configure\n\nSync-State: passed")
-    install_skills(config.root)
     child = tmp_path / "child"
     git.out("worktree", "add", "-b", "feature", str(child))
     commit(Git(child), "feature")

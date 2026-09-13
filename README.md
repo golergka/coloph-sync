@@ -10,12 +10,16 @@ Add the CLI to the repository's development dependencies and commit the updated 
 
 ```sh
 uv add --dev coloph-sync
+uv run coloph-install-skills
 uv run coloph-sync init
 ```
 
 The CLI is implemented in Python, but host projects integrate through executable commands and can use any language.
 
-`init` installs the four agent workflows under `.agents/skills/` and creates `coloph-sync.toml` if absent:
+The skill installer writes canonical copies under `.agents/skills/` and relative links under `.claude/skills/`.
+Use `uv run coloph-install-skills --check` in CI to detect missing, changed, or stale copies.
+
+`init` creates this configuration:
 
 ```toml
 main_ref = "main"
@@ -38,8 +42,7 @@ Choose a project pattern and replace the example commands with real project comm
 Then run `uv run coloph-sync install-hooks`.
 Existing commit-msg hooks run before the managed hook; uninstall restores them.
 Contributors work only in their assigned linked worktrees. Reserve the clean `main` checkout for the assigned coordinator.
-Codex discovers the workflows from `.agents/skills/`. Identical installed workflows are left alone. `init` stops before writing if an existing workflow differs; `install-skills` explicitly replaces stale workflow copies with the installed package versions.
-Every other CLI command first compares these three small files with the installed package and exits with recovery instructions if they are missing or stale.
+Codex discovers the workflows from `.agents/skills/`. Run `uv run coloph-install-skills` after dependency updates to refresh every bundled workflow and supporting file.
 Run `uv run coloph-sync run --once` in the clean main checkout, or `uv run coloph-sync run` for continuous operation.
 Use `run --branch NAME` to restrict integration to one local worktree branch.
 Use `run --push-deploy-only` to skip branch merges, run the integration check, push main, and deploy it.
@@ -129,7 +132,8 @@ uv run coloph-sync --json status
 uv run coloph-sync stop
 uv run coloph-sync logs
 uv run coloph-sync init
-uv run coloph-sync install-skills
+uv run coloph-install-skills
+uv run coloph-install-skills --check
 uv run coloph-sync adopt --all
 uv run coloph-sync skill contributor
 uv run coloph-sync skill merge-main

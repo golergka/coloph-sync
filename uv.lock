@@ -3,9 +3,21 @@ revision = 3
 requires-python = ">=3.12"
 
 [[package]]
+name = "coloph-install-skills"
+version = "0.1.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fb/ef/db2aa35f8f8c6042a93eb62eb3dc8315920a4fa7b9a8eeac206766f59253/coloph_install_skills-0.1.3.tar.gz", hash = "sha256:72c2383d18530f0c318c21307ef9d2bc1bc04803bc9e4c28d3c0e0a45627e433", size = 43627, upload-time = "2026-09-13T02:16:18.429Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/84/d6/f416b2450d4906745eb9061ce50301c06d00e0bc038b89e85ef97c06f446/coloph_install_skills-0.1.3-py3-none-any.whl", hash = "sha256:f59204ba78498e60d258b17d0f386481487c180d46299af04012adb227106d4d", size = 18817, upload-time = "2026-09-13T02:16:17.618Z" },
+]
+
+[[package]]
 name = "coloph-sync"
 version = "0.4.0"
 source = { editable = "." }
+dependencies = [
+    { name = "coloph-install-skills" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -14,6 +26,7 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "coloph-install-skills", specifier = ">=0.1.3" }]
 
 [package.metadata.requires-dev]
 dev = [

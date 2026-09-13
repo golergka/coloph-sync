@@ -54,7 +54,12 @@ def main():
                     cwd=Path(directory),
                 )
                 assert (Path(directory) / "coloph-sync.toml").exists()
-                assert len(list((Path(directory) / ".agents" / "skills").glob("*/SKILL.md"))) == 5
+                run("uv", "run", "--with", str(artifact), "coloph-install-skills", cwd=Path(directory))
+                assert len(list((Path(directory) / ".agents" / "skills").glob("*/SKILL.md"))) == 6
+                assert len(list((Path(directory) / ".claude" / "skills").iterdir())) == 6
+                assert (
+                    Path(directory) / ".agents" / "skills" / "sync-merge-main" / "references" / "conflict-review.md"
+                ).is_file()
     else:
         run("uv", "publish", *(str(path) for path in artifacts()))
 

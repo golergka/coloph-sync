@@ -28,54 +28,11 @@ deploy_command = ["./scripts/deploy"]
 """
 
 
-def _skill_files(root: Path):
-    return {
-        root / ".agents" / "skills" / f"sync-{name}" / "SKILL.md": files("coloph_sync")
-        .joinpath("skills", name, "SKILL.md")
-        .read_text(encoding="utf-8")
-        for name in SKILLS
-    }
-
-
-def install_skills(root: Path):
-    skill_files = _skill_files(root)
-    created = []
-    for name in SKILLS:
-        legacy = root / ".agents" / "skills" / f"coloph-sync-{name}" / "SKILL.md"
-        if legacy.exists():
-            legacy.unlink()
-            try:
-                legacy.parent.rmdir()
-            except OSError:
-                pass
-    for path, content in skill_files.items():
-        if not path.exists() or path.read_text(encoding="utf-8") != content:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content, encoding="utf-8")
-            created.append(path)
-    return created
-
-
-def check_skills(root: Path):
-    for path, content in _skill_files(root).items():
-        if not path.exists() or path.read_text(encoding="utf-8") != content:
-            raise ValueError(
-                "Coloph-sync skills are missing or out of date. "
-                "Run: uv run coloph-sync install-skills"
-            )
-
-
 def initialize(config: Path):
-    root = config.parent
-    skill_files = _skill_files(root)
-    for path, content in skill_files.items():
-        if path.exists() and path.read_text(encoding="utf-8") != content:
-            raise ValueError(f"Skill file differs: {path}; reconcile or move it before initializing")
     created = []
     if not config.exists():
         config.write_text(CONFIG_TEMPLATE, encoding="utf-8")
         created.append(config)
-    created.extend(install_skills(root))
     return created
 
 
@@ -151,7 +108,7 @@ def main(argv=None):
     parser.add_argument("--config", type=Path)
     parser.add_argument("--json", action="store_true")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("init", help="Create configuration and install host-project agent workflows")
+    sub.add_parser("init", help="Create the host-project configuration")
     run = sub.add_parser("run")
     run.add_argument("--once", action="store_true")
     run.add_argument("--branch", help="Restrict integration to one local worktree branch")
@@ -165,7 +122,6 @@ def main(argv=None):
     adopt_group.add_argument("--all", action="store_true")
     sub.add_parser("stop", help="Drain the current cycle and prevent the next cycle")
     sub.add_parser("logs")
-    sub.add_parser("install-skills", help="Install agent workflows in the host project")
     sub.add_parser("install-hooks")
     sub.add_parser("uninstall-hooks")
     sub.add_parser("message-state", help="Read a commit message from stdin and print its state")
@@ -206,23 +162,19 @@ def main(argv=None):
                         print(message)
             return 0
         root = args.config.resolve().parent if args.config else Path.cwd()
-        if args.command == "install-skills":
-            created = install_skills(root)
-            for path in created:
-                print(f"Installed {path.relative_to(root)}")
-            if not created:
-                print("Agent workflows are already installed")
-            return 0
         if args.command == "hook":
             config = load_config(args.config)
             return check(config, args.message.resolve())
-        check_skills(root)
         if args.command == "message-state":
             state = read_state(sys.stdin.read())
             print(state.value if state else "unmarked")
             return 0
         if args.command == "skill":
-            print(files("coloph_sync").joinpath("skills", args.name, "SKILL.md").read_text())
+            print(
+                files("coloph_sync")
+                .joinpath("bundled_agent_skills", f"sync-{args.name}", "SKILL.md")
+                .read_text()
+            )
             return 0
         config = load_config(args.config)
         if args.command == "install-hooks":
