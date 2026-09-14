@@ -22,6 +22,7 @@ git add .githooks/commit-msg
 
 The option sets the repository-local `core.hooksPath` to `.githooks` and creates the managed hook there. Commit the hook with the other project files. Every linked worktree then receives it through checkout and needs no setup command.
 If `core.hooksPath` already points inside the project, plain `init` installs the hook there without changing Git configuration.
+If the generated hook is untracked and ignored, `init` identifies the matching ignore rule and warns that new worktrees will not receive the hook until it is unignored and committed.
 
 The CLI is implemented in Python, but host projects integrate through executable commands and can use any language.
 
