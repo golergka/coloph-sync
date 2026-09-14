@@ -50,6 +50,7 @@ These rules remain mandatory if the agent host does not enforce working-director
 The managed commit hook enforces commit states, not worktree ownership. Configure host work-directory and command guards when available.
 
 Choose a project pattern and replace the example commands with real project commands. Document the project policy for agents.
+Coloph-sync runs commit checks. If the project already uses pre-commit hooks for those checks, remove them and add their commands to `commit_check` in `coloph-sync.toml`.
 Existing commit-msg hooks run before the managed hook; uninstall restores them.
 Contributors work only in their assigned linked worktrees. Reserve the clean `main` checkout for the assigned coordinator.
 Codex discovers the installed workflows from `.agents/skills/`.
