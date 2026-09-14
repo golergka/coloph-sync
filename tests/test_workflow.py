@@ -298,6 +298,20 @@ def test_init_uses_existing_version_controlled_hook_path(project, monkeypatch):
     assert (config.root / ".project-hooks/commit-msg").exists()
 
 
+def test_init_warns_when_generated_hook_is_ignored(project, monkeypatch, capsys):
+    config, git = project
+    (config.root / "coloph-sync.toml").write_text('commit_check = ["true"]\ndeploy_command = ["true"]\n')
+    (config.root / ".gitignore").write_text(".githooks/\n")
+    monkeypatch.chdir(config.root)
+
+    assert main(["init", "--install-hooks"]) == 0
+
+    warning = capsys.readouterr().err
+    assert ".gitignore:1:.githooks/" in warning
+    assert "New worktrees will not receive it until it is unignored and committed" in warning
+    assert (config.root / ".githooks/commit-msg").exists()
+
+
 def test_new_worktree_receives_tracked_hook_without_setup(project, tmp_path, monkeypatch):
     config, git = project
     (config.root / "coloph-sync.toml").write_text('commit_check = ["true"]\ndeploy_command = ["true"]\n')

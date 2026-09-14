@@ -11,7 +11,7 @@ from .adoption import adopt, candidates, hint
 from .config import load_config
 from .engine import Engine
 from .git import Git
-from .hooks import check, install, uninstall
+from .hooks import check, ignored_hook_rule, install, uninstall
 from .state import CommitState, read_state
 from .storage import read_json, write_json
 
@@ -143,8 +143,11 @@ def main(argv=None):
             root = config.parent
             created = initialize(config)
             hooks_installed = False
+            ignored_rule = None
             if (root / ".git").exists():
-                install(load_config(config), configure=args.install_hooks)
+                hook_config = load_config(config)
+                hook = install(hook_config, configure=args.install_hooks)
+                ignored_rule = ignored_hook_rule(hook_config, hook)
                 hooks_installed = True
             if args.json:
                 print(
@@ -163,6 +166,12 @@ def main(argv=None):
                     print("Project files are already initialized")
                 if hooks_installed:
                     print("Installed commit-msg hook")
+                    if ignored_rule:
+                        print(
+                            f"Warning: the commit hook is ignored by {ignored_rule}. "
+                            "New worktrees will not receive it until it is unignored and committed.",
+                            file=sys.stderr,
+                        )
                 else:
                     print("Choose a delivery pattern and configure project commands")
                 if (root / ".git").exists():

@@ -36,6 +36,21 @@ def managed_hook_installed(config: Config) -> bool:
     return hook.exists() and "# coloph-sync managed hook" in hook.read_text()
 
 
+def ignored_hook_rule(config: Config, hook: Path) -> str | None:
+    relative = hook.relative_to(config.root.resolve())
+    git = Git(config.root)
+    tracked = git.result("ls-files", "--error-unmatch", "--", str(relative))
+    if tracked.returncode == 0:
+        return None
+    if tracked.returncode != 1:
+        tracked.check_returncode()
+    ignored = git.result("check-ignore", "-v", "--no-index", "--", str(relative))
+    if ignored.returncode == 1:
+        return None
+    ignored.check_returncode()
+    return ignored.stdout.strip()
+
+
 def check(config: Config, message_path: Path) -> int:
     git = Git(config.root)
     local = Path(git.out("rev-parse", "--absolute-git-dir"))
