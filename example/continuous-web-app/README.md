@@ -10,8 +10,10 @@ Copy this directory into a new Git repository. Install a fixed coloph-sync versi
 
 ```sh
 coloph-sync init
-coloph-sync install-hooks
+coloph-sync init --install-hooks
 ```
+
+Commit the generated `.githooks/commit-msg` file with the application.
 
 Set `WEB_ROOT` in the coordinator environment. Keep the `main` checkout clean and run `coloph-sync run` there.
 The user or agent host creates and assigns linked worktrees. Each development agent must stay in its assigned worktree.

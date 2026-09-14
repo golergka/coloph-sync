@@ -108,7 +108,10 @@ def main(argv=None):
     parser.add_argument("--config", type=Path)
     parser.add_argument("--json", action="store_true")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("init", help="Create the host-project configuration")
+    init_parser = sub.add_parser("init", help="Create the host-project configuration")
+    init_parser.add_argument(
+        "--install-hooks", action="store_true", help="Configure and create a version-controlled Git hook"
+    )
     run = sub.add_parser("run")
     run.add_argument("--once", action="store_true")
     run.add_argument("--branch", help="Restrict integration to one local worktree branch")
@@ -122,7 +125,6 @@ def main(argv=None):
     adopt_group.add_argument("--all", action="store_true")
     sub.add_parser("stop", help="Drain the current cycle and prevent the next cycle")
     sub.add_parser("logs")
-    sub.add_parser("install-hooks")
     sub.add_parser("uninstall-hooks")
     sub.add_parser("message-state", help="Read a commit message from stdin and print its state")
     hook = sub.add_parser("hook")
@@ -139,11 +141,10 @@ def main(argv=None):
         if args.command == "init":
             config = args.config.resolve() if args.config else Path.cwd() / "coloph-sync.toml"
             root = config.parent
-            configured = config.exists()
             created = initialize(config)
             hooks_installed = False
-            if configured and (root / ".git").exists():
-                install(load_config(config))
+            if (root / ".git").exists():
+                install(load_config(config), configure=args.install_hooks)
                 hooks_installed = True
             if args.json:
                 print(
@@ -162,9 +163,8 @@ def main(argv=None):
                     print("Project files are already initialized")
                 if hooks_installed:
                     print("Installed commit-msg hook")
-                elif created:
+                else:
                     print("Choose a delivery pattern and configure project commands")
-                    print("Then run: uv run coloph-sync init")
                 if (root / ".git").exists():
                     message = hint(Git(root), "main")
                     if message:
@@ -186,13 +186,6 @@ def main(argv=None):
             )
             return 0
         config = load_config(args.config)
-        if args.command == "install-hooks":
-            install(config)
-            print("Installed commit-msg hook. Run: uv run coloph-sync init to install the agent workflows")
-            message = hint(Git(root), config.main_ref)
-            if message:
-                print(message)
-            return 0
         if args.command == "uninstall-hooks":
             uninstall(config)
             return 0

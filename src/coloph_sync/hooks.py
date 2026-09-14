@@ -14,9 +14,20 @@ def managed_hook_path(config: Config) -> Path:
     custom = git.result("config", "--get", "core.hooksPath")
     if custom.returncode not in (0, 1):
         custom.check_returncode()
-    hooks = Path(custom.stdout.strip()) if custom.returncode == 0 else git.common_dir() / "hooks"
+    setup = "Run: uv run coloph-sync init --install-hooks"
+    if custom.returncode == 1:
+        raise ValueError(f"No version-controlled Git hook directory is configured. {setup}")
+    hooks = Path(custom.stdout.strip())
     if not hooks.is_absolute():
         hooks = config.root / hooks
+    hooks = hooks.resolve()
+    root = config.root.resolve()
+    try:
+        relative = hooks.relative_to(root)
+    except ValueError:
+        raise ValueError(f"core.hooksPath must point inside the project. {setup}") from None
+    if relative.parts and relative.parts[0] == ".git":
+        raise ValueError(f"core.hooksPath must point to version-controlled project files. {setup}")
     return hooks / "commit-msg"
 
 
@@ -78,11 +89,10 @@ def check(config: Config, message_path: Path) -> int:
         return 0
 
 
-def install(config: Config):
+def install(config: Config, *, configure=False):
     git = Git(config.root)
-    custom = git.result("config", "--get", "core.hooksPath")
-    if custom.returncode not in (0, 1):
-        custom.check_returncode()
+    if configure:
+        git.out("config", "--local", "core.hooksPath", ".githooks")
     hook = managed_hook_path(config)
     hook.parent.mkdir(parents=True, exist_ok=True)
     signature = "# coloph-sync managed hook"
@@ -100,10 +110,7 @@ def install(config: Config):
         'exec uv run coloph-sync hook "$@"\n'
     )
     hook.chmod(0o755)
-    # A relative hooksPath is interpreted from each worktree. Pin it to the
-    # installed directory so every linked worktree uses the same hook.
-    if custom.returncode == 0 and not Path(custom.stdout.strip()).is_absolute():
-        git.out("config", "core.hooksPath", str(hook.parent))
+    return hook
 
 
 def uninstall(config: Config):

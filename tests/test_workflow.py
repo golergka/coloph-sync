@@ -191,7 +191,9 @@ def test_scaffold_and_empty_barrier(project):
 
 def test_installer_preserves_existing_hook(project):
     config, git = project
-    hook = git.common_dir() / "hooks/commit-msg"
+    git.out("config", "core.hooksPath", ".githooks")
+    hook = config.root / ".githooks/commit-msg"
+    hook.parent.mkdir()
     original = '#!/bin/sh\nprintf "\\nProject: checked\\n" >> "$1"\n'
     hook.write_text(original)
     hook.chmod(0o755)
@@ -204,18 +206,25 @@ def test_installer_preserves_existing_hook(project):
     assert hook.read_text() == original
 
 
-def test_installer_makes_relative_hooks_path_shared_by_worktrees(project, tmp_path):
+def test_installer_keeps_relative_version_controlled_hooks_path(project):
     config, git = project
-    child = tmp_path / "child"
-    git.out("worktree", "add", "-b", "feature", str(child))
     git.out("config", "core.hooksPath", ".githooks")
 
     install(config)
 
     hooks = (config.root / ".githooks").resolve()
-    assert git.out("config", "--get", "core.hooksPath") == str(hooks)
-    assert Git(child).out("rev-parse", "--path-format=absolute", "--git-path", "hooks") == str(hooks)
+    assert git.out("config", "--get", "core.hooksPath") == ".githooks"
     assert (hooks / "commit-msg").exists()
+
+
+def test_installer_rejects_unversioned_hook_locations(project):
+    config, git = project
+    with pytest.raises(ValueError, match="init --install-hooks"):
+        install(config)
+
+    git.out("config", "core.hooksPath", str(git.common_dir() / "hooks"))
+    with pytest.raises(ValueError, match="version-controlled project files"):
+        install(config)
 
 
 def test_hook_does_not_require_current_skills(project, monkeypatch):
@@ -265,17 +274,47 @@ def test_init_creates_config_and_skills_without_installing_hooks(tmp_path, monke
     assert capsys.readouterr().out == '{"created": [], "adoption_candidates": [], "hooks_installed": false}\n'
 
 
-def test_init_installs_hook_for_existing_valid_config(project, monkeypatch, capsys):
+def test_init_requires_explicit_hook_configuration(project, monkeypatch, capsys):
     config, git = project
     (config.root / "coloph-sync.toml").write_text('commit_check = ["true"]\ndeploy_command = ["true"]\n')
     monkeypatch.chdir(config.root)
 
-    assert main(["init"]) == 0
+    assert main(["init"]) == 2
+    assert "init --install-hooks" in capsys.readouterr().err
+    assert git.result("config", "--get", "core.hooksPath").returncode == 1
+
+    assert main(["init", "--install-hooks"]) == 0
     assert "Installed commit-msg hook" in capsys.readouterr().out
-    assert "# coloph-sync managed hook" in (git.common_dir() / "hooks" / "commit-msg").read_text()
+    assert git.out("config", "--get", "core.hooksPath") == ".githooks"
+    assert "# coloph-sync managed hook" in (config.root / ".githooks/commit-msg").read_text()
+
+
+def test_init_uses_existing_version_controlled_hook_path(project, monkeypatch):
+    config, git = project
+    (config.root / "coloph-sync.toml").write_text('commit_check = ["true"]\ndeploy_command = ["true"]\n')
+    git.out("config", "core.hooksPath", ".project-hooks")
+    monkeypatch.chdir(config.root)
 
     assert main(["init"]) == 0
-    assert not (git.common_dir() / "hooks" / "commit-msg.before-coloph-sync").exists()
+    assert git.out("config", "--get", "core.hooksPath") == ".project-hooks"
+    assert (config.root / ".project-hooks/commit-msg").exists()
+
+
+def test_new_worktree_receives_tracked_hook_without_setup(project, tmp_path, monkeypatch):
+    config, git = project
+    (config.root / "coloph-sync.toml").write_text('commit_check = ["true"]\ndeploy_command = ["true"]\n')
+    monkeypatch.chdir(config.root)
+    assert main(["init", "--install-hooks"]) == 0
+    git.out("add", "coloph-sync.toml", ".githooks/commit-msg")
+    git.out("commit", "-m", "Configure coloph-sync")
+
+    child = tmp_path / "child"
+    git.out("worktree", "add", "-b", "feature", str(child))
+    branch = Git(child)
+    branch.out("commit", "--allow-empty", "-m", "Commit from new worktree")
+
+    assert (child / ".githooks/commit-msg").exists()
+    assert read_state(branch.message("HEAD")) == CommitState.PASSED
 
 
 def test_install_reports_legacy_worktree_branches(project, tmp_path, monkeypatch, capsys):
@@ -287,7 +326,7 @@ def test_install_reports_legacy_worktree_branches(project, tmp_path, monkeypatch
 
     (config.root / "coloph-sync.toml").write_text('commit_check = ["true"]\ndeploy_command = ["true"]\n')
     monkeypatch.chdir(config.root)
-    assert main(["install-hooks"]) == 0
+    assert main(["init", "--install-hooks"]) == 0
     output = capsys.readouterr().out
     assert candidates(git, "main") == ["legacy"]
     assert "Existing worktree branches may need adoption: legacy" in output
@@ -315,7 +354,9 @@ def test_adopt_checks_and_merges_a_legacy_branch(project, tmp_path, monkeypatch)
     git.out("add", "coloph-sync.toml")
     git.out("commit", "-m", "Configure coloph-sync")
     monkeypatch.chdir(config.root)
-    assert main(["install-hooks"]) == 0
+    assert main(["init", "--install-hooks"]) == 0
+    git.out("add", ".githooks/commit-msg")
+    git.out("commit", "-m", "Track commit hook")
 
     assert main(["adopt", "--all"]) == 0
     assert git.ancestor(legacy, "main")
@@ -340,7 +381,9 @@ def test_adopt_aborts_when_the_normal_merge_check_fails(project, tmp_path, monke
     git.out("add", "coloph-sync.toml")
     git.out("commit", "-m", "Configure coloph-sync")
     monkeypatch.chdir(config.root)
-    assert main(["install-hooks"]) == 0
+    assert main(["init", "--install-hooks"]) == 0
+    git.out("add", ".githooks/commit-msg")
+    git.out("commit", "-m", "Track commit hook")
 
     assert main(["adopt", "--all"]) == 2
     assert not git.ancestor(legacy, "main")
@@ -503,7 +546,7 @@ def test_real_git_hook_and_saved_failure(project):
     )
     git.out("add", "coloph-sync.toml")
     git.out("commit", "-m", "Configure\n\nSync-State: passed")
-    install(config)
+    install(config, configure=True)
     git.out("commit", "--allow-empty", "-m", "Review this")
     assert read_state(git.message("HEAD")) == CommitState.FAILED
     assert "Review this" == git.message("HEAD").splitlines()[0]
@@ -522,7 +565,7 @@ def test_real_merge_hook_rejects_automatic_negative_verdict(project, tmp_path):
     git.out("worktree", "add", "-b", "feature", str(child))
     commit(Git(child), "feature")
     before = commit(git, "main-file")
-    install(config)
+    install(config, configure=True)
     engine = Engine(config)
     engine.merge_in()
     assert git.resolve("HEAD") == before

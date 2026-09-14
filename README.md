@@ -13,6 +13,16 @@ uv add --dev coloph-sync
 uv run coloph-sync init
 ```
 
+In a Git repository without a version-controlled hook directory, `init` creates the project files and exits with the command needed to authorize hook setup. Run it once:
+
+```sh
+uv run coloph-sync init --install-hooks
+git add .githooks/commit-msg
+```
+
+The option sets the repository-local `core.hooksPath` to `.githooks` and creates the managed hook there. Commit the hook with the other project files. Every linked worktree then receives it through checkout and needs no setup command.
+If `core.hooksPath` already points inside the project, plain `init` installs the hook there without changing Git configuration.
+
 The CLI is implemented in Python, but host projects integrate through executable commands and can use any language.
 
 Add this instruction to the host project's `AGENTS.md`:
@@ -39,8 +49,6 @@ These rules remain mandatory if the agent host does not enforce working-director
 The managed commit hook enforces commit states, not worktree ownership. Configure host work-directory and command guards when available.
 
 Choose a project pattern and replace the example commands with real project commands. Document the project policy for agents.
-Then run `uv run coloph-sync init` again. It installs the shared commit hook when an existing valid configuration is present, so worktree setup scripts can always run this one command.
-When `core.hooksPath` is relative, installation makes it absolute so linked worktrees use the same hook directory.
 Existing commit-msg hooks run before the managed hook; uninstall restores them.
 Contributors work only in their assigned linked worktrees. Reserve the clean `main` checkout for the assigned coordinator.
 Codex discovers the installed workflows from `.agents/skills/`.
