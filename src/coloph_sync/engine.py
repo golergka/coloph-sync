@@ -311,7 +311,7 @@ class Engine:
         self.save("publish")
         self.publish(delivery)
 
-    def cycle(self, *, deploy_only=False, push_deploy_only=False):
+    def cycle(self, *, deploy_only=False, push_deploy_only=False, repair_pending_deploy=False):
         if self.git.out("branch", "--show-current") != self.config.main_ref:
             raise RuntimeError(f"Run the coordinator on {self.config.main_ref}")
         if self.git.out("status", "--porcelain"):
@@ -320,8 +320,26 @@ class Engine:
             raise RuntimeError("The integration branch must have a checked commit before running")
         pending = read_json(self.delivery_path).get("attempt", {})
         if pending and pending["status"] != "published":
+            if not repair_pending_deploy:
+                self.deploy(pending["sha"])
+                return
+            if pending["status"] != "running":
+                raise RuntimeError("A completed deploy only needs publication retry; do not merge a repair")
+            if not self.branch:
+                raise RuntimeError("Select exactly one repair branch")
+            repair_sha = self.git.resolve(self.branch)
+            if not repair_sha:
+                raise RuntimeError(f"Repair branch does not exist: {self.branch}")
+            self.merge_in()
+            if not self.git.ancestor(repair_sha, "HEAD"):
+                raise RuntimeError(f"Repair branch was not fully merged: {self.branch}")
+            self.save("verify")
+            self.report["checks_status"] = "running"
+            self.save()
+            self.command(self.config.integration_check or self.config.commit_check, "integration")
+            self.report["checks_status"] = "passed"
+            self.save()
             self.deploy(pending["sha"])
-            return
         if self.config.preflight_command:
             self.save("preflight")
             self.command(self.config.preflight_command, "preflight")
@@ -346,7 +364,7 @@ class Engine:
                 raise RuntimeError("Push the deployment target before a manual deploy")
         self.deploy(sha)
 
-    def run(self, *, once=False, deploy_only=False, push_deploy_only=False):
+    def run(self, *, once=False, deploy_only=False, push_deploy_only=False, repair_pending_deploy=False):
         with lock(self.directory / "sync-test-push.lock"):
             owner = {"pid": os.getpid(), "id": self.run_id}
             write_json(self.owner_path, owner)
@@ -354,7 +372,11 @@ class Engine:
             try:
                 while True:
                     try:
-                        self.cycle(deploy_only=deploy_only, push_deploy_only=push_deploy_only)
+                        self.cycle(
+                            deploy_only=deploy_only,
+                            push_deploy_only=push_deploy_only,
+                            repair_pending_deploy=repair_pending_deploy,
+                        )
                     except (RuntimeError, ValueError, OSError, subprocess.SubprocessError, KeyboardInterrupt) as exc:
                         phase = self.report.get("current_phase", "startup")
                         if phase == "verify":

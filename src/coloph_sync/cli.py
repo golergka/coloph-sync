@@ -115,6 +115,11 @@ def main(argv=None):
     run = sub.add_parser("run")
     run.add_argument("--once", action="store_true")
     run.add_argument("--branch", help="Restrict integration to one local worktree branch")
+    run.add_argument(
+        "--repair-pending-deploy",
+        action="store_true",
+        help="Merge one checked repair branch, retry the pending deploy, then deliver the repair",
+    )
     run.add_argument("--push-deploy-only", action="store_true", help="Skip merges, then check, push, and deploy main")
     deploy = sub.add_parser("deploy", help="Deploy through the shared coordinator")
     deploy.add_argument("--commit")
@@ -213,12 +218,16 @@ def main(argv=None):
             engine.rollback = getattr(args, "rollback", False)
             engine.mode = args.command
             engine.branch = getattr(args, "branch", None)
+            repair_pending_deploy = getattr(args, "repair_pending_deploy", False)
             if engine.rollback and not engine.manual_sha:
                 raise ValueError("An explicit rollback requires --commit")
+            if repair_pending_deploy and (not args.once or not args.branch or args.push_deploy_only):
+                raise ValueError("--repair-pending-deploy requires run --once --branch NAME")
             engine.run(
                 once=getattr(args, "once", False),
                 deploy_only=args.command == "deploy",
                 push_deploy_only=getattr(args, "push_deploy_only", False),
+                repair_pending_deploy=repair_pending_deploy,
             )
         elif args.command == "stop":
             owner = read_json(engine.owner_path)

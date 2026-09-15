@@ -490,6 +490,53 @@ def test_pending_deploy_resumes_before_preflight(project, monkeypatch):
     assert resumed == [sha]
 
 
+def test_checked_repair_can_fix_and_follow_failed_pending_deploy(project, tmp_path):
+    config, git = project
+    child = tmp_path / "repair"
+    git.out("worktree", "add", "-b", "repair", str(child))
+    repair_sha = commit(Git(child), "deploy-repair")
+    original = git.out("rev-parse", "HEAD")
+    calls = git.common_dir() / "deploy-calls"
+    command = (
+        sys.executable,
+        "-c",
+        "import os; from pathlib import Path; "
+        f"p=Path({str(calls)!r}); "
+        "p.write_text((p.read_text() if p.exists() else '') + "
+        "os.environ['COLOPH_SYNC_COMMIT'] + ' ' + os.environ['COLOPH_SYNC_ATTEMPT_ID'] + '\\n')",
+    )
+    engine = Engine(replace(config, deploy_command=command))
+    engine.branch = "repair"
+    write_json(
+        engine.delivery_path,
+        {"attempt": {"id": "original-attempt", "sha": original, "status": "running", "previous_remote": None}},
+    )
+
+    engine.cycle(repair_pending_deploy=True)
+
+    lines = calls.read_text().splitlines()
+    assert lines[0] == f"{original} original-attempt"
+    assert lines[1].split()[0] == git.out("rev-parse", "HEAD")
+    assert lines[1].split()[1] != "original-attempt"
+    assert git.ancestor(repair_sha, "main")
+    assert engine.deployed() == git.out("rev-parse", "HEAD")
+
+
+def test_pending_publication_rejects_deploy_repair_merge(project, tmp_path):
+    config, git = project
+    child = tmp_path / "repair"
+    git.out("worktree", "add", "-b", "repair", str(child))
+    commit(Git(child), "deploy-repair")
+    engine = Engine(config)
+    engine.branch = "repair"
+    write_json(engine.delivery_path, {"attempt": {"sha": git.out("rev-parse", "HEAD"), "status": "completed"}})
+
+    with pytest.raises(RuntimeError, match="publication retry"):
+        engine.cycle(repair_pending_deploy=True)
+
+    assert not git.ancestor("repair", "main")
+
+
 def test_concurrent_publication_does_not_overwrite(project):
     config, git = project
     engine = Engine(config)

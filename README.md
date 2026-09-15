@@ -57,6 +57,11 @@ Codex discovers the installed workflows from `.agents/skills/`.
 Run `uv run coloph-sync run --once` in the clean main checkout, or `uv run coloph-sync run` for continuous operation.
 Use `run --branch NAME` to restrict integration to one local worktree branch.
 Use `run --push-deploy-only` to skip branch merges, run the integration check, push main, and deploy it.
+After a deployment command fails because its checked-in implementation is broken, put the repair on one checked
+contributor branch. From the stopped coordinator checkout, run
+`uv run coloph-sync run --once --branch NAME --repair-pending-deploy`. This merges and checks only that branch,
+retries the outstanding deployment with its original commit and attempt identity, then pushes and deploys the repair
+commit as a new attempt. Do not use this mode for a publication-only retry.
 A repository adopted after feature work has begun can merge its active worktree branches with `uv run coloph-sync adopt --all`.
 It runs the normal merge check for each branch, preserves its existing commits, and records each successful adoption in the shared Git directory.
 Branches that conflict or fail their merge check remain unadopted; later commits still require valid `Sync-State` metadata.

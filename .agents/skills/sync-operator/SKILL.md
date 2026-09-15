@@ -104,6 +104,13 @@ Diagnose failed checks through the project's prescribed workflow. Never skip or 
 For an authorized contributor repair here, stop the coordinator and use `sync-contributor`.
 Create a normal checked repair commit before resuming. Never leave an uncommitted repair for the loop to collect.
 Without that repair authorization, report the required contributor work and the responsible checkout.
+If the failed pending deployment needs a checked-in repair to its deployment command, assign that repair to a
+contributor task and ask it to message this operator task after it creates the checked repair commit. Keep the operator
+reminder active while waiting, with the repair branch and task identity in its instructions. On that completion message,
+or when the reminder observes the new checked tip, keep the continuous loop stopped and run exactly
+`uv run coloph-sync run --once --branch NAME --repair-pending-deploy`. This command merges and checks only that repair,
+retries the pending deployment with its original commit and attempt identity, then pushes and deploys the repair commit
+as a new attempt. Do not use it when only publication is pending.
 After a coordinator repair, keep the continuous loop stopped. Record `uv run coloph-sync --json status --all`, then run exactly one `uv run coloph-sync run --once`. This recovery cycle performs its one delivery attempt before normal looping resumes; do not run another deploy command or start the continuous loop alongside it. If that cycle fails, recover the new recorded failure instead of re-enabling the loop.
 After that recovery cycle succeeds, compare `uv run coloph-sync --json status --all` with the saved pre-recovery status. Identify every branch newly reported as deployed, every branch with a newly recorded rejection, and every branch newly reported as `action needed`. When operating in Codex, find the task responsible for each identified branch from its confirmed branch assignment or task history. Send a deployed task `The coordinator failed, but was fixed. Your branch has been deployed.` Send a rejected task `The coordinator failed, but was fixed. Your branch has been rejected.` For `action needed`, report that exact verdict, its reason, and the repair the branch owner must perform; never describe `action needed` as rejection. Do not guess a task-branch association or message an unrelated task; report an unassigned branch instead.
 Only after this notification pass, resume normal continuous operation unless the user requested a single cycle or stopped operation.
