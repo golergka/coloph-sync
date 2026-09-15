@@ -3,7 +3,6 @@
 Project commands own checks and deployment internals.
 """
 
-import json
 import os
 import signal
 import subprocess
@@ -56,18 +55,12 @@ class Engine:
         return delivery.get("deployed_sha") or self.git.resolve(f"refs/tags/{self.config.deployed_ref}")
 
     def command(self, command, context, *, sha=None, attempt=None, timeout=None):
-        history = read_json(self.delivery_path).get("history", [])
-        previous_attempts = [
-            {"id": item["id"], "sha": item["sha"]}
-            for item in history if item.get("status") == "superseded" and not item.get("resolved_by")
-        ]
         env = {
             **os.environ,
             "COLOPH_SYNC_CONTEXT": context,
             "COLOPH_SYNC_RUN_ID": self.run_id,
             "COLOPH_SYNC_COMMIT": sha or self.git.out("rev-parse", "HEAD"),
             "COLOPH_SYNC_ATTEMPT_ID": attempt or "",
-            "COLOPH_SYNC_PREVIOUS_ATTEMPTS": json.dumps(previous_attempts),
             "COLOPH_SYNC_DEPLOYED_COMMIT": self.deployed() or "",
             "COLOPH_SYNC_ROLLBACK": "1" if self.rollback else "0",
             "COLOPH_SYNC_MODE": self.mode,
@@ -132,46 +125,6 @@ class Engine:
             if getattr(updated, name) != getattr(self.config, name):
                 raise RuntimeError(f"The repair changed coordinator routing ({name}); review it before restarting")
         self.config = updated
-
-    def reconcile(self, pending):
-        """Project commands own remote recovery; the coordinator selects checked work."""
-        if not self.config.reconcile_command:
-            if self.git.out("rev-parse", "HEAD") == pending["sha"]:
-                return "retry"
-            result = {"outcome": "replace", "reason": "Deploy repaired HEAD; the project command owns recovery of prior attempts"}
-        else:
-            self.save("reconcile")
-            output = self.command(
-                self.config.reconcile_command, "reconcile", sha=pending["sha"], attempt=pending["id"],
-                timeout=self.config.deploy_timeout,
-            )
-            result = json.loads(output)
-        if (
-            not isinstance(result, dict)
-            or result.get("outcome") not in ("delivered", "retry", "replace", "blocked")
-            or not isinstance(result.get("reason"), str)
-            or not result["reason"].strip()
-        ):
-            raise ValueError("Reconciliation requires an outcome and a nonempty reason")
-        delivery = read_json(self.delivery_path)
-        delivery["attempt"]["reconciliation"] = {**result, "at": now()}
-        write_json(self.delivery_path, delivery)
-        if result["outcome"] == "blocked":
-            raise RuntimeError(result["reason"])
-        if result["outcome"] == "delivered":
-            delivery["attempt"].update(status="completed", completed_at=now())
-            write_json(self.delivery_path, delivery)
-        if result["outcome"] == "replace":
-            head = self.git.out("rev-parse", "HEAD")
-            if head == pending["sha"] or not self.git.ancestor(pending["sha"], head):
-                raise RuntimeError("The failed deployment needs a checked successor before replacement")
-            if self.barrier("HEAD", self.deployed()):
-                raise RuntimeError("A replacement cannot bypass an undelivered deployment barrier")
-            delivery.setdefault("history", []).append({
-                **delivery.pop("attempt"), "status": "superseded", "replacement_sha": head, "closed_at": now(),
-            })
-            write_json(self.delivery_path, delivery)
-        return result["outcome"]
 
     def barrier(self, branch, deployed):
         # Original pending_deploy_barrier algorithm, using typed body states.
@@ -345,15 +298,14 @@ class Engine:
     def deploy(self, sha):
         delivery = read_json(self.delivery_path)
         previous = delivery.get("attempt", {})
-        if sha != self.git.out("rev-parse", "HEAD") and not (
-            previous.get("sha") == sha and previous.get("status") == "completed"
-        ):
-            raise RuntimeError("Deployment tooling and payload must come from HEAD; an older commit cannot be deployed here")
+        if sha != self.git.out("rev-parse", "HEAD"):
+            raise RuntimeError("Deployment tooling and payload must come from HEAD")
+        if previous and previous["sha"] != sha:
+            if previous["status"] == "completed":
+                delivery["deployed_sha"] = previous["sha"]
+            delivery.setdefault("history", []).append({**previous, "archived_at": now()})
+            previous = {}
         if previous and previous["status"] != "published":
-            if previous["sha"] != sha:
-                raise RuntimeError(
-                    f"Resolve deploy attempt {previous['id']} for {previous['sha']} before deploying another commit"
-                )
             attempt = previous
             self.rollback = attempt.get("rollback", False)
         else:
@@ -381,51 +333,17 @@ class Engine:
                 self.config.deploy_command, "deploy", sha=sha, attempt=attempt["id"], timeout=self.config.deploy_timeout
             )
             attempt.update(status="completed", completed_at=now())
-            for item in delivery.get("history", []):
-                if item.get("status") == "superseded" and not item.get("resolved_by"):
-                    item["resolved_by"] = attempt["id"]
             write_json(self.delivery_path, delivery)
         self.save("publish")
         self.publish(delivery)
 
-    def cycle(self, *, deploy_only=False, push_deploy_only=False, repair_pending_deploy=False):
+    def cycle(self, *, deploy_only=False, push_deploy_only=False):
         if self.git.out("branch", "--show-current") != self.config.main_ref:
             raise RuntimeError(f"Run the coordinator on {self.config.main_ref}")
         if self.git.out("status", "--porcelain"):
             raise RuntimeError("The coordinator checkout must be clean")
         if read_state(self.git.message("HEAD")) not in (CommitState.PASSED, CommitState.DEPLOY_BARRIER):
             raise RuntimeError("The integration branch must have a checked commit before running")
-        pending = read_json(self.delivery_path).get("attempt", {})
-        if pending and pending["status"] != "published":
-            self.rollback = pending.get("rollback", False)
-            if self.manual_sha and self.git.resolve(self.manual_sha) != pending["sha"]:
-                raise RuntimeError("A different manual target cannot replace an unresolved deployment")
-            if pending["status"] == "completed":
-                if repair_pending_deploy:
-                    raise RuntimeError("A completed deploy only needs publication retry; do not merge a repair")
-                self.deploy(pending["sha"])
-            else:
-                if self.branch and not deploy_only and not push_deploy_only:
-                    repair_sha = self.git.resolve(self.branch)
-                    if not repair_sha:
-                        raise RuntimeError(f"Repair branch does not exist: {self.branch}")
-                    self.merge_in()
-                    if not self.git.ancestor(repair_sha, "HEAD"):
-                        raise RuntimeError(f"Repair branch was not fully merged: {self.branch}")
-                if self.git.out("rev-parse", "HEAD") != pending["sha"]:
-                    self.integration_check()
-                outcome = self.reconcile(pending)
-                if outcome == "retry" and self.git.out("rev-parse", "HEAD") != pending["sha"]:
-                    raise RuntimeError(
-                        "The repair will deploy HEAD, not the failed commit. "
-                        "Reconcile the old remote operation before replacing it: "
-                        "the project reconcile_command must confirm delivered or replace."
-                    )
-                if outcome != "replace":
-                    self.deploy(pending["sha"])
-            if deploy_only or self.git.out("rev-parse", "HEAD") == pending["sha"]:
-                return
-            self.rollback = False
         if self.config.preflight_command:
             self.save("preflight")
             self.command(self.config.preflight_command, "preflight")
@@ -445,7 +363,7 @@ class Engine:
                 raise RuntimeError("Push the deployment target before a manual deploy")
         self.deploy(sha)
 
-    def run(self, *, once=False, deploy_only=False, push_deploy_only=False, repair_pending_deploy=False):
+    def run(self, *, once=False, deploy_only=False, push_deploy_only=False):
         with lock(self.directory / "sync-test-push.lock"):
             owner = {"pid": os.getpid(), "id": self.run_id}
             write_json(self.owner_path, owner)
@@ -456,7 +374,6 @@ class Engine:
                         self.cycle(
                             deploy_only=deploy_only,
                             push_deploy_only=push_deploy_only,
-                            repair_pending_deploy=repair_pending_deploy,
                         )
                     except (RuntimeError, ValueError, OSError, subprocess.SubprocessError, KeyboardInterrupt) as exc:
                         phase = self.report.get("current_phase", "startup")

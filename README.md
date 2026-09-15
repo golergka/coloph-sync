@@ -65,20 +65,17 @@ Contributors work only in their assigned linked worktrees. Reserve the clean `ma
 Codex discovers the installed workflows from `.agents/skills/`.
 Run `uv run coloph-sync run --once` in the clean main checkout, or `uv run coloph-sync run` for continuous operation.
 Use `run --branch NAME` to restrict integration to one local worktree branch.
-Use `run --push-deploy-only` to resolve pending delivery, skip branch merges, check main, push it, and deploy it.
-After a deployment command fails because its checked-in implementation is broken, put the repair on one checked
-contributor branch. From the stopped coordinator checkout, run
-`uv run coloph-sync run --once --branch NAME`. This merges and checks only that branch,
-resolves the outstanding deployment, then pushes and deploys the repair commit as a new attempt.
-The coordinator reloads repaired project commands before checks and recovery in that cycle.
-For a checked repair already on main, use `uv run coloph-sync run --once`.
-The older `--repair-pending-deploy` option remains available for compatibility. Normal operation does not require it.
+Use `run --push-deploy-only` to check, push, and deploy HEAD without branch merges.
+After a failure, the operator diagnoses the cause and commits the repair.
+The next `uv run coloph-sync run --once` cycle merges ready work, checks it, pushes main, and deploys HEAD.
+Use `--branch NAME` to select one repair branch.
+The coordinator reloads project commands after merges.
 A repository adopted after feature work has begun can merge its active worktree branches with `uv run coloph-sync adopt --all`.
 It runs the normal merge check for each branch, preserves its existing commits, and records each successful adoption in the shared Git directory.
 Branches that conflict or fail their merge check remain unadopted; later commits still require valid `Sync-State` metadata.
 A delivery command is required. Remote branches and cloud supervision are outside this release.
 
-Optional configuration: `preflight_command`, `reconcile_command`, `deployed_ref` (default `deployed`), `deploy_tag_prefix` (default `deploy`),
+Optional configuration: `preflight_command`, `deployed_ref` (default `deployed`), `deploy_tag_prefix` (default `deploy`),
 `check_timeout` and `deploy_timeout` (14400 seconds), `merge_timeout` (1500 seconds), `interval` (60 seconds), and
 `live_output_limit` (65536 characters). When a project command exceeds `live_output_limit`, coloph-sync continues to
 write its complete output to the run log, prints the log path once, and prints the final 4096 characters when it ends.
@@ -129,72 +126,29 @@ At a deployment barrier, only its parent can merge until that parent has complet
 
 ## Deploy contract
 
+Each cycle merges ready work, runs the integration check, pushes main, and deploys HEAD.
+Deployment tooling, configuration, and payload all come from that commit.
 The command receives `COLOPH_SYNC_COMMIT`, `COLOPH_SYNC_ATTEMPT_ID`, `COLOPH_SYNC_RUN_ID`,
 `COLOPH_SYNC_DEPLOYED_COMMIT`, and `COLOPH_SYNC_CONTEXT=deploy`.
-`COLOPH_SYNC_PREVIOUS_ATTEMPTS` contains a JSON list of prior unconfirmed attempts, with `id` and `sha` for each.
-The project command owns recovery of any external work from those attempts before it reports success.
-Synchronous commands that leave no work active after failure need no remote checks.
-Exit 0 confirms the project-defined delivery of the exact target. Nonzero leaves the attempt unconfirmed and stops the loop.
-Repeated calls with the same attempt ID and target must reconcile or resume safely, including remote work still running.
-The command owns all infrastructure details. It must not publish the coordinator's deployment refs.
 
-For a versioned package, delivery does not have to publish every commit. This repository demonstrates that pattern.
-The project can use a version change as its release request or calculate a version automatically from each eligible commit.
-The command publishes only a new declared version. If the version is unchanged, the command can complete without publication.
-The project owns its version policy and registry checks. Coloph-sync does not select or increase versions.
+Exit 0 confirms project-defined delivery. A failure or interruption stops the cycle.
+The operator diagnoses the failure and arranges a checked repair. The next cycle uses the same normal workflow.
+Project commands own external operations and any necessary recovery.
+A synchronous command can finish all its work before returning.
+A command that starts background work checks that work through the relevant service before it reports delivery.
 
-A verification-only command is also valid. It can confirm that the target reached the required Git branch and then exit 0.
-In this configuration, `deployed` means that the project-defined verification completed. It does not mean that an artifact was published.
+The project defines release policy. It can publish automatically, publish after a version change, or verify that HEAD reached a branch.
+This repository publishes new declared versions. An already published version makes delivery verify that HEAD reached `origin/main`.
+Project status therefore distinguishes branch delivery from package publication.
 
-The engine persists completion before publishing an immutable `deploy/<attempt-id>` tag and the moving `deployed` tag.
-Publication retries do not redeploy a completed attempt. Concurrent changes to the moving tag fail explicitly.
-A lost success acknowledgment remains uncertain and requires reconciliation by the deployment command on retry.
-An outstanding attempt is resolved before another delivery. A selected checked repair can merge before that resolution.
-Rollback is not automatic.
-Manual deployment uses `uv run coloph-sync deploy` and the same lock and records.
-An explicit `--commit` must match the checked-out HEAD. A historical target cannot use a newer checkout's deployment code.
-Explicit recovery uses `uv run coloph-sync deploy --commit SHA --rollback`. The command receives `COLOPH_SYNC_ROLLBACK=1`.
-The deployment command owns whether that recovery is safe. Normal runs never select rollback.
-
-### Recovery evidence
-
-Deployment tooling, configuration, and payload come from one checked commit: HEAD.
-The coordinator refuses to execute deployment commands for an older commit from a newer checkout.
-After a repair, the coordinator deploys the checked successor. It never retries the failed commit with repaired tooling.
-Reconciliation can inspect an older operation's remote status, but cannot deploy that operation.
-An unchanged retry must reconcile external work before it repeats an irreversible action.
-
-Projects can configure `reconcile_command` for automatic recovery decisions.
-It receives the deployment environment with `COLOPH_SYNC_CONTEXT=reconcile`.
-It must inspect external state without starting another deployment.
-Its output contains exactly one JSON object, for example:
-
-```json
-{"outcome": "replace", "reason": "The workflow ended before publication; the registry contains no artifacts."}
-```
-
-- `delivered`: evidence confirms delivery of the exact target. The coordinator records success without another deployment.
-- `retry`: the deployment command can safely resume the same target and attempt only while that target remains HEAD.
-- `replace`: the old operation is terminal, and evidence proves that a successor is safe.
-- `blocked`: the reason identifies missing evidence or a required repair. The coordinator stops without changing delivery records to success.
-
-A nonzero exit, invalid output, or unknown outcome stops recovery. Every outcome requires a nonempty reason.
-Replacement requires a checked descendant on main and cannot cross an undelivered deployment barrier.
-The coordinator preserves the old attempt and evidence in delivery history without marking it deployed.
-The project command owns evidence about partial publication, active remote jobs, and external effects.
-The coordinator never infers safe replacement from a failed command or timeout alone.
-
-Without `reconcile_command`, an unchanged HEAD retries the same attempt. After a repair, the coordinator deploys the new HEAD.
-The deployment command receives the prior attempt details and handles any project-specific recovery.
-Coloph-sync does not assume that a failed command started remote work or require a separate remote check.
-Completed deployments only retry coordinator refs. They never run reconciliation or deployment again.
-
-### Project command lessons
+The coordinator saves completion before publishing its immutable attempt tag and moving `deployed` tag.
+For a completed delivery, a repeated cycle can finish publishing those records.
+Concurrent changes to the moving tag produce an error for operator review.
+Manual deployment uses `uv run coloph-sync deploy` with the same lock and records.
+An explicit `--commit` identifies HEAD. The `--rollback` option authorizes delivery of an intentionally restored HEAD.
 
 Local checks and CI use the same validation command. New releases also build and exercise their artifacts before tag creation.
-Tags and artifacts refer to the checked source. Existing immutable contents are checked, never overwritten.
-Network failures can occur after validation. Project commands therefore handle existing releases and partial success explicitly.
-Branch delivery and package publication remain separate facts under project policy.
+Tags and artifacts refer to the checked source. Project commands check existing publications through the registry.
 
 ## Status and agents
 

@@ -50,7 +50,6 @@ def create(destination, scenario):
         'commit_check = ["python", "project.py", "check"]\n'
         'integration_check = ["python", "project.py", "check"]\n'
         'deploy_command = ["python", "project.py", "deploy"]\n'
-        'reconcile_command = ["python", "project.py", "reconcile"]\n'
     )
     (project / ".gitignore").write_text(".venv/\n__pycache__/\n")
     (project / "AGENTS.md").write_text(

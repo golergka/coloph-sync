@@ -49,14 +49,10 @@ uv run coloph-sync run --once --branch REPAIR_BRANCH
 ```
 
 For a repair already committed on main, use `uv run coloph-sync run --once`.
-The coordinator checks the repair, resolves pending delivery, then delivers the successor.
-Deployment tooling, configuration, and payload must all come from that successor commit.
-Never run repaired deployment tooling against an older payload. Reconciliation only inspects the old operation's remote status.
-The project reconciliation command determines whether to retry, record success, or replace a conclusively failed attempt.
-The project deployment command owns any external recovery and receives previous attempt details.
-A synchronous failure that leaves no work active needs no remote checks. A separate reconciliation command is optional.
-Repair the project command when it cannot distinguish remote outcomes. Never infer that a timeout means no external effect.
-Never edit coordinator records, bypass checks or barriers, force-push, or run a competing deployment to escape a failure.
+The coordinator merges ready work, checks it, pushes main, and deploys HEAD.
+Deployment tooling, configuration, and payload all come from HEAD.
+Project deployment commands own external work and any necessary recovery.
+Use the project's failure diagnostics to determine the repair.
 
 Retry a transient failure once. After repeated failure with the same evidence, investigate instead of repeating it unchanged.
 After three unsuccessful repairs for the same cause, report the unresolved cause and the required next action.

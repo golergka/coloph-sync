@@ -25,20 +25,8 @@ def main():
     record = STATE / f"{target}.json"
     settings = target_settings(target)
     previous = json.loads(record.read_text()) if record.exists() else {}
-    if command == "reconcile":
-        if previous.get("status") == "published":
-            outcome, reason = "delivered", "The local service contains the exact target"
-        elif previous.get("status") == "failed":
-            outcome, reason = "replace", "The service rejected the payload before publication; no operation remains active"
-        else:
-            head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-            outcome = "replace" if head != target else "retry"
-            reason = "No publication exists and this synchronous service has no active operation"
-        print(json.dumps({"outcome": outcome, "reason": reason}))
-        return
     if previous.get("status") == "published":
         return
-    # This value belongs to tooling. Repairs can change it without changing the target payload.
     assert local["builder"] == "builtin", "Unknown builder; this project supports builtin"
     STATE.mkdir(exist_ok=True)
     if settings["payload"] != "valid":

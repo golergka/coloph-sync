@@ -45,7 +45,8 @@ def test_seeded_failure_recovers_through_normal_workflow(tmp_path, scenario):
     if scenario == "immutable-payload":
         history = json.loads((project / ".git/coloph-sync-delivery.json").read_text())["history"]
         assert history[0]["sha"] == original
-        assert history[0]["status"] == "superseded"
+        assert history[0]["status"] == "running"
+        assert "archived_at" in history[0]
         assert json.loads((service / f"{original}.json").read_text())["status"] == "failed"
     assert not run("git", "status", "--porcelain").strip()
 

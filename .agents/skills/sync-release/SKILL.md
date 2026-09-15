@@ -26,14 +26,12 @@ Create a checked commit. Then run:
 uv run coloph-sync run --push-deploy-only
 ```
 
-This command resolves pending delivery before it delivers current main. It does not merge contributor branches.
+This command checks, pushes, and deploys HEAD.
 Project commands must enforce source, version, and publication prerequisites before irreversible changes.
 Do not rely on this skill as the only guard against an invalid release.
 
 If delivery fails, diagnose and repair through `sync-operator` within existing authorization.
-Use project reconciliation to distinguish running work, confirmed success, and a failed release that permits replacement.
-Never overwrite immutable tags or artifacts. A checked replacement follows project version policy.
-Do not change versions merely to escape an unknown publication outcome.
+Follow the project version policy when a repair requires another release.
 
 Check actual publication and installation before reporting a release complete.
 An existing Git tag, a successful push, or branch delivery alone does not prove package publication.

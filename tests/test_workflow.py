@@ -450,7 +450,7 @@ def test_publication_retry_does_not_deploy_twice(project, monkeypatch):
     assert engine.deployed() == sha
 
 
-def test_failed_deploy_reuses_identity_before_new_work(project):
+def test_unchanged_head_reuses_attempt_identity(project):
     config, git = project
     engine = Engine(replace(config, deploy_command=(sys.executable, "-c", "raise SystemExit(2)")))
     sha = git.out("rev-parse", "HEAD")
@@ -462,7 +462,7 @@ def test_failed_deploy_reuses_identity_before_new_work(project):
     assert read_json(engine.delivery_path)["attempt"]["id"] == attempt
 
 
-def test_pending_deploy_resumes_before_preflight(project, monkeypatch):
+def test_every_cycle_runs_preflight(project, monkeypatch):
     config, git = project
     engine = Engine(replace(config, preflight_command=(sys.executable, "-c", "raise SystemExit(2)")))
     sha = git.out("rev-parse", "HEAD")
@@ -470,13 +470,14 @@ def test_pending_deploy_resumes_before_preflight(project, monkeypatch):
     resumed = []
     monkeypatch.setattr(engine, "deploy", resumed.append)
 
-    engine.cycle()
+    with pytest.raises(subprocess.CalledProcessError):
+        engine.cycle()
 
-    assert resumed == [sha]
+    assert resumed == []
 
 
-@pytest.mark.parametrize("legacy_option", [False, True])
-def test_checked_repair_deploys_only_successor(project, tmp_path, legacy_option):
+@pytest.mark.parametrize("selected_branch", [None, "repair"])
+def test_repair_cycle_deploys_head(project, tmp_path, selected_branch):
     config, git = project
     child = tmp_path / "repair"
     git.out("worktree", "add", "-b", "repair", str(child))
@@ -491,16 +492,14 @@ def test_checked_repair_deploys_only_successor(project, tmp_path, legacy_option)
         "p.write_text((p.read_text() if p.exists() else '') + "
         "os.environ['COLOPH_SYNC_COMMIT'] + ' ' + os.environ['COLOPH_SYNC_ATTEMPT_ID'] + '\\n')",
     )
-    response = json.dumps({"outcome": "replace", "reason": "No external work remains"})
-    engine = Engine(replace(config, deploy_command=command,
-                           reconcile_command=(sys.executable, "-c", f"print({response!r})")))
-    engine.branch = "repair"
+    engine = Engine(replace(config, deploy_command=command))
+    engine.branch = selected_branch
     write_json(
         engine.delivery_path,
         {"attempt": {"id": "original-attempt", "sha": original, "status": "running", "previous_remote": None}},
     )
 
-    engine.cycle(repair_pending_deploy=legacy_option)
+    engine.cycle()
 
     lines = calls.read_text().splitlines()
     assert len(lines) == 1
@@ -541,52 +540,23 @@ def test_manual_old_target_cannot_mix_commits_or_create_attempt(project):
     assert not read_json(engine.delivery_path)
 
 
-@pytest.mark.parametrize("outcome", ["replace", "delivered", "blocked", "nonsense"])
-def test_reconciliation_preserves_delivery_truth(project, outcome):
+def test_new_head_publishes_its_own_delivery_records(project, monkeypatch):
     config, git = project
     old = git.out("rev-parse", "HEAD")
     new = commit(git, "repair")
-    response = json.dumps({"outcome": outcome, "reason": "remote evidence"})
-    reconcile = (sys.executable, "-c", f"print({response!r})")
-    count = git.common_dir() / "deploy-count"
-    deploy = (sys.executable, "-c", f"from pathlib import Path; p=Path({str(count)!r}); "
-              "p.write_text(p.read_text()+'x' if p.exists() else 'x')")
-    engine = Engine(replace(config, reconcile_command=reconcile, deploy_command=deploy))
+    engine = Engine(config)
     write_json(engine.delivery_path, {"attempt": {
-        "id": "original", "sha": old, "status": "running", "previous_remote": None,
+        "id": "old", "sha": old, "status": "completed", "previous_remote": None,
     }})
-    if outcome in ("blocked", "nonsense"):
-        with pytest.raises((RuntimeError, ValueError)):
-            engine.cycle(push_deploy_only=True)
-        assert not count.exists()
-        assert read_json(engine.delivery_path)["attempt"]["id"] == "original"
-        assert not engine.deployed()
-        return
-    engine.cycle(push_deploy_only=True)
-    assert count.read_text() == "x"  # Only the successor runs deployment.
+    published = []
+    original = engine.publish
+    def publish(delivery):
+        published.append(delivery["attempt"]["sha"])
+        return original(delivery)
+    monkeypatch.setattr(engine, "publish", publish)
+    engine.cycle()
+    assert published == [new]
     assert engine.deployed() == new
-    old_tag = git.resolve("refs/tags/deploy/original")
-    if outcome == "replace":
-        assert old_tag is None
-        history = read_json(engine.delivery_path)["history"]
-        assert history[0]["sha"] == old
-        assert history[0]["status"] == "superseded"
-        assert history[0]["reconciliation"]["reason"] == "remote evidence"
-    else:
-        assert old_tag == old
-
-
-def test_replacement_does_not_open_barrier(project):
-    config, git = project
-    old = git.out("rev-parse", "HEAD")
-    git.out("commit", "--allow-empty", "-m", "Barrier\n\nSync-State: deploy-barrier")
-    response = json.dumps({"outcome": "replace", "reason": "never published"})
-    engine = Engine(replace(config, reconcile_command=(sys.executable, "-c", f"print({response!r})")))
-    write_json(engine.delivery_path, {"attempt": {"id": "original", "sha": old, "status": "running"}})
-    with pytest.raises(RuntimeError, match="barrier"):
-        engine.cycle(push_deploy_only=True)
-    assert read_json(engine.delivery_path)["attempt"]["id"] == "original"
-    assert engine.deployed() is None
 
 
 def test_checked_repair_reloads_project_commands_in_same_cycle(project, tmp_path):
@@ -599,11 +569,7 @@ def test_checked_repair_reloads_project_commands_in_same_cycle(project, tmp_path
     git.out("push", "origin", "main")
     repair = tmp_path / "config-repair"
     git.out("worktree", "add", "-b", "repair", str(repair))
-    response = json.dumps({"outcome": "replace", "reason": "The false command performed no delivery"})
-    reconcile = json.dumps([sys.executable, "-c", f"print({response!r})"])
-    (repair / "coloph-sync.toml").write_text(
-        'commit_check = ["true"]\ndeploy_command = ["true"]\n' + f'reconcile_command = {reconcile}\n'
-    )
+    (repair / "coloph-sync.toml").write_text('commit_check = ["true"]\ndeploy_command = ["true"]\n')
     branch = Git(repair)
     branch.out("commit", "-am", "Repair command\n\nSync-State: passed")
     engine = Engine(load_config(path), config_path=path)
@@ -613,21 +579,6 @@ def test_checked_repair_reloads_project_commands_in_same_cycle(project, tmp_path
     engine.cycle()
     assert engine.deployed() == git.out("rev-parse", "HEAD")
     assert engine.config.deploy_command == ("true",)
-
-
-def test_pending_publication_rejects_deploy_repair_merge(project, tmp_path):
-    config, git = project
-    child = tmp_path / "repair"
-    git.out("worktree", "add", "-b", "repair", str(child))
-    commit(Git(child), "deploy-repair")
-    engine = Engine(config)
-    engine.branch = "repair"
-    write_json(engine.delivery_path, {"attempt": {"sha": git.out("rev-parse", "HEAD"), "status": "completed"}})
-
-    with pytest.raises(RuntimeError, match="publication retry"):
-        engine.cycle(repair_pending_deploy=True)
-
-    assert not git.ancestor("repair", "main")
 
 
 def test_concurrent_publication_does_not_overwrite(project):

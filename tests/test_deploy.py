@@ -90,26 +90,6 @@ def test_checks_fail_before_tag_creation(monkeypatch, commands):
     assert not any(args[:3] == ("gh", "release", "create") for args in commands)
 
 
-@pytest.mark.parametrize("state,publisher,expected", [
-    ("completed", "skipped", "replace"),
-    ("completed", "failure", "blocked"),
-    ("completed", "success", "blocked"),
-    ("in_progress", "skipped", "retry"),
-])
-def test_replacement_requires_terminal_unpublished_evidence(monkeypatch, commands, state, publisher, expected):
-    original = deploy.run
-    def run(*args, **kwargs):
-        if args[:3] == ("gh", "run", "list"):
-            return json.dumps([{"databaseId": 1, "status": state, "headSha": "target"}])
-        if args[:3] == ("gh", "run", "view"):
-            return json.dumps({"jobs": [{"name": "publish", "conclusion": publisher}]})
-        return original(*args, **kwargs)
-    monkeypatch.setattr(deploy, "run", run)
-    monkeypatch.setattr(deploy, "remote_tag", lambda tag: "target")
-    monkeypatch.setattr(deploy, "published_versions", lambda: set())
-    assert deploy.reconcile("target")["outcome"] == expected
-
-
 def test_wait_for_install_retries_until_uv_can_install(monkeypatch):
     results = iter((SimpleNamespace(returncode=1, stderr="not found"), SimpleNamespace(returncode=0, stderr="")))
     sleeps = []

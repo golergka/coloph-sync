@@ -3,7 +3,6 @@ import json
 import os
 import re
 import subprocess
-import sys
 import tempfile
 import time
 import tomllib
@@ -124,48 +123,10 @@ def ship_release(tag):
     verify_published(tag[1:])
 
 
-def reconcile(target):
-    """Only a terminal run with no started publisher permits a replacement."""
-    current, _ = version(target)
-    tag = f"v{current}"
-    tagged = remote_tag(tag)
-    if current in published_versions():
-        if not tagged or version(tagged)[0] != current:
-            return {"outcome": "blocked", "reason": "Published version does not match its source tag"}
-        run("git", "merge-base", "--is-ancestor", tagged, target)
-        verify_published(current)
-        return {"outcome": "delivered", "reason": f"{tag} is published and installable"}
-    if not tagged:
-        return {"outcome": "retry", "reason": "No release tag exists"}
-    if tagged != target or version(tagged)[0] != current:
-        return {"outcome": "blocked", "reason": "Release tag conflicts with the requested source"}
-    runs = json.loads(run(
-        "gh", "run", "list", "--workflow", "publish.yml", "--branch", tag, "--limit", "100",
-        "--json", "databaseId,status,conclusion,headSha", capture=True,
-    ))
-    if not runs or len(runs) == 100:
-        return {"outcome": "blocked", "reason": "Cannot establish the complete publication history"}
-    if any(item["status"] != "completed" for item in runs):
-        return {"outcome": "retry", "reason": "Publication is still running"}
-    for item in runs:
-        if item["headSha"] != target:
-            return {"outcome": "blocked", "reason": "Publication workflow source does not match the release"}
-        details = json.loads(run(
-            "gh", "run", "view", str(item["databaseId"]), "--json", "jobs", capture=True,
-        ))
-        publishers = [job for job in details["jobs"] if job["name"] == "publish"]
-        if len(publishers) != 1 or publishers[0]["conclusion"] != "skipped":
-            return {"outcome": "blocked", "reason": "Publication may have started; reconcile registry artifacts before replacement"}
-    return {"outcome": "replace", "reason": f"All {tag} workflows ended before publication; PyPI has no version {current}"}
-
-
 def main():
     target = os.environ.get("COLOPH_SYNC_COMMIT")
     if not target:
         raise SystemExit("COLOPH_SYNC_COMMIT is required")
-    if sys.argv[1:] == ["--reconcile"]:
-        print(json.dumps(reconcile(target)))
-        return
     if run("git", "rev-parse", "HEAD", capture=True) != target:
         raise SystemExit("Deployment tooling and payload must come from HEAD")
     remote_main = run("git", "ls-remote", "origin", "refs/heads/main", capture=True).split()
