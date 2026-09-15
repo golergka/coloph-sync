@@ -11,7 +11,7 @@ Use this skill only in the clean main checkout operated by the main-branch coord
 
 Stop the sync loop with `uv run coloph-sync stop`. If it has an operator reminder, delete that reminder and verify the loop has exited. Do not start another coordinator while preparing the release.
 
-Verify that the current branch is the configured `main` branch, the working tree is clean, and no deploy attempt is unfinished. Bring main to a deployable state: resolve any recorded coordinator failure through the established coordinator recovery procedure, run the project's required checks, and ensure the current commit is eligible for deployment. Do not repair contributor branches from this workflow.
+Verify that the current branch is the configured `main` branch, the working tree is clean, and no deploy attempt is outstanding. Bring main to a deployable state: resolve any recorded coordinator failure through the established coordinator recovery procedure, run the project's required checks, and ensure the current commit is eligible for deployment. Do not repair contributor branches from this workflow.
 
 Find the most recent versioned release and read every change from that release through `HEAD`, including merge commits and the relevant diffs. Use the project’s documented SemVer rules to determine whether the changes require a major, minor, patch, or no version change. Check the declared package version and published versions so the proposed version is valid and new.
 

@@ -1,9 +1,9 @@
 ---
-name: sync-finish
-description: Finish implemented work end to end in a repository managed by the sync coordinator. Use after branch work to own repair, integration, delivery validation, and complete closeout.
+name: sync-ship
+description: Ship implemented work end to end in a repository managed by the sync coordinator. Use after branch work to own repair, integration, delivery validation, and complete closeout.
 ---
 
-# Finish synchronized work
+# Ship synchronized work
 
 Start from the original request and the work performed in this task. The goal is to make the current branch merged into the configured main branch, delivered through the project's deployment command, and validated through the closest real user or operator path.
 
@@ -59,24 +59,24 @@ Do not keep a foreground wait command running. Use a heartbeat attached to this 
 - Put the absolute expiry time and current branch/task scope in the reminder.
 - Stay quiet while state is unchanged and non-actionable.
 
-Never create or extend a finish reminder beyond that four-hour expiry unless the user gives fresh same-turn instructions to keep waiting. Every reminder instruction must start with this operational contract, adapted only by replacing the placeholders with concrete values:
+Never create or extend a ship reminder beyond that four-hour expiry unless the user gives fresh same-turn instructions to keep waiting. Every reminder instruction must start with this operational contract, adapted only by replacing the placeholders with concrete values:
 
-> START BY LOADING AND FOLLOWING `sync-finish` FROM THE BEGINNING. Run exactly
+> START BY LOADING AND FOLLOWING `sync-ship` FROM THE BEGINNING. Run exactly
 > `uv run coloph-sync status`. Reminder expiry: `<absolute ISO timestamp>`. IF
 > CURRENT TIME IS AT OR AFTER THAT EXPIRY AND THIS CHECK DOES NOT REPORT
 > `Merged: yes` AND `Deployed: yes`, DELETE THIS REMINDER NOW, REPORT THAT THE
 > PASSIVE WAIT WINDOW EXPIRED, AND DO NOT CONTINUE WAITING. IF IT REPORTS ANY
 > FAILURE OR `action needed` BEFORE EXPIRY,
-> DO NOT END THE TURN AND DO NOT JUST REPORT IT. FOLLOW `sync-finish`'s REPAIR
+> DO NOT END THE TURN AND DO NOT JUST REPORT IT. FOLLOW `sync-ship`'s REPAIR
 > WORKFLOW IMMEDIATELY (`merge failed` => RUN `sync-merge-main` NOW),
-> FIX THE FAILURE, THEN RETURN TO `sync-finish`. IF THE OUTPUT SAYS `Sync loop
+> FIX THE FAILURE, THEN RETURN TO `sync-ship`. IF THE OUTPUT SAYS `Sync loop
 > phase: error` WHILE THIS BRANCH IS NOT BOTH `Merged: yes` AND `Deployed:
 > yes`, DELETE THIS REMINDER, ALERT THE USER WITH THE RECORDED ERROR, AND STOP.
 > IF BOTH ARE YES, CONTINUE THROUGH DELIVERED VALIDATION AND DO NOT OPERATE THE
 > COORDINATOR, UNLESS THE PRINTED ACTION IS A CHECKS FAILURE; REPAIR THAT BRANCH
 > FAILURE FIRST. IF THE CURRENT BRANCH TIP HAS NOT BEEN OBSERVED, CONTINUE
 > WAITING. IF THE CURRENT TIP WAS SKIPPED OR UNCHANGED AND `Merged: no`, DELETE
-> THIS REMINDER, REPAIR THE STATED BRANCH BLOCKER, THEN RESTART `sync-finish`
+> THIS REMINDER, REPAIR THE STATED BRANCH BLOCKER, THEN RESTART `sync-ship`
 > FROM THE BEGINNING.
 
 After that contract, state the current branch and task scope, validation instructions, time window, and explicit exclusions. When scope changes, update or delete the reminder before waiting again. Do not tell a reminder to stop and report a concrete repairable failure.

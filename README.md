@@ -45,7 +45,7 @@ The user or agent host must create each worktree and assign it to one agent. Col
 An agent must remain in its assigned worktree. It must not create another worktree, switch branches, or inspect another worktree without explicit user authorization.
 Approval for one worktree does not grant access to another worktree.
 If an assigned worktree is detached, the agent creates a branch at its current HEAD. This is the only automatic branch operation.
-Saving work means creating a commit. A WIP or failed checkpoint is not finished work.
+Saving work means creating a commit. A WIP or failed checkpoint is not shipped work.
 These rules remain mandatory if the agent host does not enforce working-directory boundaries mechanically.
 The managed commit hook enforces commit states, not worktree ownership. Configure host work-directory and command guards when available.
 
@@ -130,7 +130,7 @@ In this configuration, `deployed` means that the project-defined verification co
 The engine persists completion before publishing an immutable `deploy/<attempt-id>` tag and the moving `deployed` tag.
 Publication retries do not redeploy a completed attempt. Concurrent changes to the moving tag fail explicitly.
 A lost success acknowledgment remains uncertain and requires reconciliation by the deployment command on retry.
-An unfinished attempt is resolved before another integration cycle. Rollback is not automatic.
+An outstanding attempt is resolved before another integration cycle. Rollback is not automatic.
 Manual deployment uses `uv run coloph-sync deploy` and the same lock and records.
 Explicit recovery uses `uv run coloph-sync deploy --commit SHA --rollback`. The command receives `COLOPH_SYNC_ROLLBACK=1`.
 The deployment command owns whether that recovery is safe. Normal runs never select rollback.
@@ -147,11 +147,11 @@ uv run coloph-sync adopt --all
 uv run coloph-sync skill contributor
 uv run coloph-sync skill merge-main
 uv run coloph-sync skill operator
-uv run coloph-sync skill finish
+uv run coloph-sync skill ship
 ```
 
-The installed skill descriptions tell agents when to use contributor, merge-main, operator, finish, and release workflows.
-Their installed names are `sync-contributor`, `sync-merge-main`, `sync-operator`, `sync-finish`, and `sync-release`.
+The installed skill descriptions tell agents when to use contributor, merge-main, operator, ship, and release workflows.
+Their installed names are `sync-contributor`, `sync-merge-main`, `sync-operator`, `sync-ship`, and `sync-release`.
 Keep project-specific checks, delivery implementation, reviewers, and manual validation procedures in the project.
 Stop drains the current cycle. SIGTERM also drains. A forced interruption cannot cancel remote deployment work reliably.
 State and logs live in the shared Git directory, so linked worktrees see the same results.

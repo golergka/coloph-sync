@@ -31,12 +31,12 @@ def test_new_version_creates_release(monkeypatch):
     monkeypatch.setattr(deploy, "run", lambda *args, **kwargs: calls.append(args) or "target\trefs/heads/main")
     monkeypatch.setattr(deploy, "remote_tag", lambda tag: None)
     monkeypatch.setattr(deploy, "published_versions", lambda: {"0.3.1"})
-    monkeypatch.setattr(deploy, "finish_release", lambda tag: calls.append(("finish", tag)))
+    monkeypatch.setattr(deploy, "ship_release", lambda tag: calls.append(("ship", tag)))
 
     deploy.main()
 
     assert ("gh", "release", "create", f"v{current}", "--target", "target", "--title", f"v{current}", "--generate-notes") in calls
-    assert ("finish", f"v{current}") in calls
+    assert ("ship", f"v{current}") in calls
 
 
 def test_untagged_published_version_fails(monkeypatch):

@@ -16,4 +16,4 @@ One branch can remove a table, field, join, or document layer while the other br
 
 ## Clean merge with contract drift
 
-A merge can finish without conflict markers but still combine incompatible APIs. Compare changed public functions, configuration keys, schemas, and tests. Use targeted searches for retired names. Correct the drift before you save the merge.
+A merge can ship without conflict markers but still combine incompatible APIs. Compare changed public functions, configuration keys, schemas, and tests. Use targeted searches for retired names. Correct the drift before you save the merge.

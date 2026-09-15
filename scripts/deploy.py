@@ -103,7 +103,7 @@ def wait_for_install(version):
         time.sleep(INSTALL_INTERVAL)
 
 
-def finish_release(tag):
+def ship_release(tag):
     item = release_run(tag)
     if item["status"] != "completed":
         run("gh", "run", "watch", str(item["databaseId"]), "--exit-status")
@@ -127,7 +127,7 @@ def main():
     if tagged:
         run("git", "merge-base", "--is-ancestor", tagged, target)
         if current not in releases:
-            finish_release(tag)
+            ship_release(tag)
         else:
             wait_for_install(current)
         print(f"Verified {target[:10]}; {tag} is already published")
@@ -140,7 +140,7 @@ def main():
         raise SystemExit(f"new version {current} must be greater than the published versions")
 
     run("gh", "release", "create", tag, "--target", target, "--title", tag, "--generate-notes")
-    finish_release(tag)
+    ship_release(tag)
     print(f"Published {tag} from {target[:10]}")
 
 

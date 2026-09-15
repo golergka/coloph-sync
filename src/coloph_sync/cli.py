@@ -15,7 +15,7 @@ from .hooks import check, ignored_hook_rule, install, uninstall
 from .state import CommitState, read_state
 from .storage import read_json, write_json
 
-SKILLS = ("contributor", "merge-main", "operator", "finish", "release")
+SKILLS = ("contributor", "merge-main", "operator", "ship", "release")
 CONFIG_TEMPLATE = """# Coloph-sync owns commit checks, integration, and calls to the deployment command.
 # This project owns the commands, release policy, deployment service, and success criteria.
 # A package can publish only after a version change. A continuously deployed app can deploy every integrated commit.
@@ -226,7 +226,7 @@ def main(argv=None):
                 print("No coordinator is running")
             else:
                 write_json(engine.stop_path, {"id": owner["id"]})
-                print("Stop requested: the current cycle will finish")
+                print("Stop requested: the current cycle will complete")
         elif args.command == "logs":
             logs = sorted(engine.directory.glob("coloph-sync-*.log"), key=lambda path: path.stat().st_mtime)
             if logs:
@@ -251,7 +251,7 @@ def main(argv=None):
         print(str(exc), file=sys.stderr)
         return 2
     except KeyboardInterrupt:
-        print("Interrupted; reconcile any unfinished deploy attempt before resuming", file=sys.stderr)
+        print("Interrupted; reconcile any outstanding deploy attempt before resuming", file=sys.stderr)
         return 130
 
 

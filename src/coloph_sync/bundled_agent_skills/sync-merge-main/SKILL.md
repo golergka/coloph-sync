@@ -1,6 +1,6 @@
 ---
 name: sync-merge-main
-description: Merge configured local main into the current contributor branch with merge-base history review, semantic conflict diagnosis, validation, and return to sync-finish.
+description: Merge configured local main into the current contributor branch with merge-base history review, semantic conflict diagnosis, validation, and return to sync-ship.
 ---
 
 # Merge Main
@@ -12,9 +12,9 @@ A coordinator `merge failed` result is actionable for the branch tip the coordin
 
 After that repair advances the branch tip, `uv run coloph-sync status` suppresses an old failure recorded for an ancestor of the current branch. A pending result saying the coordinator has not reached the current branch tip yet is a passive wait or reminder state, not another `sync-merge-main` instruction. If the coordinator later checks the new tip and records `merge failed` again, the failure becomes actionable again.
 
-DO NOT END THE TURN OR JUST REPORT THE FAILURE. A merge failure is the command to perform this workflow now, then return to `sync-finish`. Escalate only when the semantic resolution genuinely requires new user authority or unavailable external input after all safe in-scope diagnosis and repair are exhausted.
+DO NOT END THE TURN OR JUST REPORT THE FAILURE. A merge failure is the command to perform this workflow now, then return to `sync-ship`. Escalate only when the semantic resolution genuinely requires new user authority or unavailable external input after all safe in-scope diagnosis and repair are exhausted.
 
-If the goal is end-to-end closeout after implementation, use `sync-finish` first; it will call into this skill only when the branch needs the configured local main branch merged in or a coordinator merge blocker resolved.
+If the goal is end-to-end closeout after implementation, use `sync-ship` first; it will call into this skill only when the branch needs the configured local main branch merged in or a coordinator merge blocker resolved.
 
 ## Non-Negotiables
 
@@ -34,7 +34,7 @@ If the goal is end-to-end closeout after implementation, use `sync-finish` first
    - `git status -sb`
 3. If detached HEAD, create a descriptive `codex/` branch at the current HEAD and continue.
 4. Otherwise, remain on the current branch. Do not create a worktree or switch branches. Read `main_ref` from `coloph-sync.toml`, set `MAIN_REF` to that value, and verify that it resolves to a local branch. If the current branch is that ref, stop; this skill is for contributor branches.
-5. If the tree is dirty, finish and commit the work first.
+5. If the tree is dirty, save and commit the work first.
 6. If `git merge-base --is-ancestor "$MAIN_REF" HEAD` passes, the branch already includes configured local main; do not create a no-op merge.
 7. If `HEAD` is `Sync-State: wip` or `Sync-State: failed`, do not attempt the merge or bypass its guard. First create a reviewed `Sync-State: dont-merge` scaffolding commit, then merge the configured local main branch; this is the path for a branch that cannot pass before main is integrated.
 
@@ -98,7 +98,7 @@ After conflicts are text-resolved, check for semantic leftovers:
    accept the generated message.
 5. Do not replace the generated subject or hand-edit hook-managed commit metadata.
 6. After the passed merge commit, run `uv run coloph-sync status` for the new tip. A new conflict recorded for the new tip starts this workflow again.
-7. If `sync-finish` sent you here, return to it after the repair commit.
+7. If `sync-ship` sent you here, return to it after the repair commit.
 
 ## Step 6: Report (Required)
 
@@ -120,4 +120,4 @@ Use this format:
 - `Resolution: <brief>`
 - `Escalation: <none|reason>`
 
-Return to `sync-finish` in the same turn. Do not give a final user handoff from this workflow.
+Return to `sync-ship` in the same turn. Do not give a final user handoff from this workflow.

@@ -1,6 +1,6 @@
 ---
 name: sync-contributor
-description: Implement and commit contributor work in a repository managed by the sync coordinator, then hand it to sync-finish for integration, delivery, and closeout.
+description: Implement and commit contributor work in a repository managed by the sync coordinator, then hand it to sync-ship for integration, delivery, and closeout.
 ---
 
 Before editing, determine whether the current checkout is the checkout where the sync coordinator runs.
@@ -18,7 +18,7 @@ Approval for one worktree does not grant access to another worktree.
 Never force-push or use `git reset --hard`. Destructive cleanup requires explicit current user approval.
 Read the repository's check and Git instructions.
 
-Saving work means creating a commit. Finish with an ordinary passed commit; a WIP or failed checkpoint is not finished work. The reviewed `dont-merge` scaffold required by `sync-merge-main` is the exception when main must be integrated before the branch can pass.
+Saving work means creating a commit. Close with an ordinary passed commit; a WIP or failed checkpoint is not shipped work. The reviewed `dont-merge` scaffold required by `sync-merge-main` is the exception when main must be integrated before the branch can pass.
 The commit-msg hook owns check results. An ordinary commit needs no input marker.
 Never copy a passed marker to avoid checks. The hook always checks ordinary commits.
 
@@ -39,9 +39,9 @@ The coordinator attempts merges; it does not resolve conflicts or write repairs.
 
 ## Required closeout handoff
 
-After an ordinary passed commit, immediately use `sync-finish` in the same turn.
+After an ordinary passed commit, immediately use `sync-ship` in the same turn.
 Do not give a final user handoff from this workflow.
 
-Skip `sync-finish` only when the user explicitly pauses the task, requests a local-only commit, or tells you not to wait for integration or delivery.
+Skip `sync-ship` only when the user explicitly pauses the task, requests a local-only commit, or tells you not to wait for integration or delivery.
 
-If `sync-finish` sent you here for a repair, return to `sync-finish` after the repair commit. Continue the closeout workflow in the same turn.
+If `sync-ship` sent you here for a repair, return to `sync-ship` after the repair commit. Continue the closeout workflow in the same turn.

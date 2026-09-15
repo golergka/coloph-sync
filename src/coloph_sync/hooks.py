@@ -62,7 +62,7 @@ def check(config: Config, message_path: Path) -> int:
             parent_state = read_state(git.message("HEAD"))
             if parent_state in (None, CommitState.WIP, CommitState.FAILED) and not os.environ.get("COLOPH_SYNC_ADOPTION"):
                 raise ValueError(
-                    "Finish the current commit checks before merging; a checked dont-merge scaffold is allowed"
+                    "Complete the current commit checks before merging; a checked dont-merge scaffold is allowed"
                 )
             if state in (CommitState.WIP, CommitState.DEPLOY_BARRIER, CommitState.DONT_MERGE):
                 raise ValueError("A merge commit cannot request a checkpoint or barrier state")

@@ -241,15 +241,15 @@ def test_hook_does_not_require_current_skills(project, monkeypatch):
 def test_skill_lifecycle_has_required_handoffs():
     root = Path(__file__).parents[1] / "src" / "coloph_sync" / "bundled_agent_skills"
     contributor = (root / "sync-contributor" / "SKILL.md").read_text()
-    finish = (root / "sync-finish" / "SKILL.md").read_text()
+    ship = (root / "sync-ship" / "SKILL.md").read_text()
     merge_main = (root / "sync-merge-main" / "SKILL.md").read_text()
 
-    assert "immediately use `sync-finish` in the same turn" in contributor
+    assert "immediately use `sync-ship` in the same turn" in contributor
     assert "Do not give a final user handoff from this workflow" in contributor
-    assert "Do not report completion while work is only locally clean" in finish
-    assert "it must continue through Step 5 production smoke, then\nStep 6 final executive summary" in finish
-    assert "include the concise Step 6 handoff first" in finish
-    assert "Return to `sync-finish` in the same turn" in merge_main
+    assert "Do not report completion while work is only locally clean" in ship
+    assert "it must continue through Step 5 production smoke, then\nStep 6 final executive summary" in ship
+    assert "include the concise Step 6 handoff first" in ship
+    assert "Return to `sync-ship` in the same turn" in merge_main
     assert (root / "sync-merge-main" / "references" / "conflict-review.md").exists()
 
 

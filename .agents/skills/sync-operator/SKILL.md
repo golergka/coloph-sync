@@ -1,6 +1,6 @@
 ---
 name: sync-operator
-description: Operate and continuously supervise the sync coordinator in its designated checkout, including recovery and operator reminders. Contributors use sync-contributor or sync-finish.
+description: Operate and continuously supervise the sync coordinator in its designated checkout, including recovery and operator reminders. Contributors use sync-contributor or sync-ship.
 ---
 
 Operate only the checkout where the sync coordinator runs, with repository authorization.
@@ -57,7 +57,7 @@ Report the routing mismatch instead of executing unrelated instructions.
 
 ## Stop and recover
 
-Use `uv run coloph-sync stop` to finish the current cycle and prevent another cycle.
+Use `uv run coloph-sync stop` to complete the current cycle and prevent another cycle.
 On a user stop request, delete the operator reminder so it cannot restart the loop.
 Check that the saved reminder is gone. Wait for the owned process to exit before reporting it stopped.
 

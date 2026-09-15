@@ -4,23 +4,23 @@
     "provider": "coloph-install-skills"
   },
   "sync-contributor": {
-    "digest": "706ba3fd0dca605380e54d10ae33415f8bbb11b92537c84e4fe254ab385c60c2",
-    "provider": "coloph-sync"
-  },
-  "sync-finish": {
-    "digest": "ec7c78d211da2b24738430ce9d10289e896c71af8ad4d6930b11e7075d5c3879",
+    "digest": "61b36ad8bd6f6a71723e6d2407d034e2b84e529ec09e430e4f5e4284cc3976cb",
     "provider": "coloph-sync"
   },
   "sync-merge-main": {
-    "digest": "5dc52d930cf86339787d07f1003b83dc10df56c86ecfe1f1796175e57c452dd7",
+    "digest": "2fe6a5f0efbc370769b46eb5dcf26f4dd491db065a5240b8955c1c00abde253b",
     "provider": "coloph-sync"
   },
   "sync-operator": {
-    "digest": "bfb290d997ab83e5b4b6f70113f9e50329ba0c96875929b4bb275e2101c551a5",
+    "digest": "9f4215335dc8e9fc1e6494d8562bbfe82a9feacc540056510203d08e435f1126",
     "provider": "coloph-sync"
   },
   "sync-release": {
-    "digest": "d27d3bb4df997987a4c69fe477eb1a13374435ab70df5b7d496ef650b97cd917",
+    "digest": "e46567dfae103701954c12f519ea84170987b91fae3612e52ea6589fe8dd3d41",
+    "provider": "coloph-sync"
+  },
+  "sync-ship": {
+    "digest": "3e506b133bba7b1fc478306af729295c6298a92fb74e4ddc8471cd7851b8935c",
     "provider": "coloph-sync"
   }
 }
