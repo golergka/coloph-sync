@@ -70,6 +70,7 @@ After a deployment command fails because its checked-in implementation is broken
 contributor branch. From the stopped coordinator checkout, run
 `uv run coloph-sync run --once --branch NAME`. This merges and checks only that branch,
 resolves the outstanding deployment, then pushes and deploys the repair commit as a new attempt.
+The coordinator reloads repaired project commands before checks and recovery in that cycle.
 For a checked repair already on main, use `uv run coloph-sync run --once`.
 The older `--repair-pending-deploy` option remains available for compatibility. Normal operation does not require it.
 A repository adopted after feature work has begun can merge its active worktree branches with `uv run coloph-sync adopt --all`.

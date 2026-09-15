@@ -576,6 +576,28 @@ def test_replacement_does_not_open_barrier(project):
     assert engine.deployed() is None
 
 
+def test_checked_repair_reloads_project_commands_in_same_cycle(project, tmp_path):
+    config, git = project
+    path = config.root / "coloph-sync.toml"
+    path.write_text('commit_check = ["true"]\ndeploy_command = ["false"]\n')
+    git.out("add", "coloph-sync.toml")
+    git.out("commit", "-m", "Broken command\n\nSync-State: passed")
+    original = git.out("rev-parse", "HEAD")
+    git.out("push", "origin", "main")
+    repair = tmp_path / "config-repair"
+    git.out("worktree", "add", "-b", "repair", str(repair))
+    (repair / "coloph-sync.toml").write_text('commit_check = ["true"]\ndeploy_command = ["true"]\n')
+    branch = Git(repair)
+    branch.out("commit", "-am", "Repair command\n\nSync-State: passed")
+    engine = Engine(load_config(path), config_path=path)
+    engine.branch = "repair"
+    with pytest.raises(subprocess.CalledProcessError):
+        engine.deploy(original)
+    engine.cycle()
+    assert engine.deployed() == git.out("rev-parse", "HEAD")
+    assert engine.config.deploy_command == ("true",)
+
+
 def test_pending_publication_rejects_deploy_repair_merge(project, tmp_path):
     config, git = project
     child = tmp_path / "repair"

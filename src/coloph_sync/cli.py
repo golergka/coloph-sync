@@ -210,7 +210,7 @@ def main(argv=None):
         if args.command == "uninstall-hooks":
             uninstall(config)
             return 0
-        engine = Engine(config)
+        engine = Engine(config, config_path=Path(args.config).resolve() if args.config else config.root / "coloph-sync.toml")
         if args.command == "adopt":
             branches = candidates(engine.git, config.main_ref) if args.all else [args.branch]
             if not branches:

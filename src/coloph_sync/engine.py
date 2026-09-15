@@ -12,7 +12,7 @@ import uuid
 from collections import deque
 from datetime import UTC, datetime
 
-from .config import Config
+from .config import Config, load_config
 from .git import Git, run_checked
 from .state import CommitState, read_state
 from .storage import lock, read_json, write_json
@@ -25,8 +25,9 @@ def now():
 
 
 class Engine:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, *, config_path=None):
         self.config = config
+        self.config_path = config_path
         self.git = Git(config.root)
         self.directory = self.git.common_dir()
         self.report_path = self.directory / "sync-report.json"
@@ -116,6 +117,15 @@ class Engine:
         self.command(self.config.integration_check or self.config.commit_check, "integration")
         self.report["checks_status"] = "passed"
         self.save()
+
+    def refresh_config(self):
+        if self.config_path is None:
+            return
+        updated = load_config(self.config_path)
+        for name in ("root", "main_ref", "remote", "deployed_ref", "deploy_tag_prefix"):
+            if getattr(updated, name) != getattr(self.config, name):
+                raise RuntimeError(f"The repair changed coordinator routing ({name}); review it before restarting")
+        self.config = updated
 
     def reconcile(self, pending):
         """Project evidence resolves uncertainty; a failure alone never permits replacement."""
@@ -282,6 +292,8 @@ class Engine:
                 entry.pop("reason_code", None)
                 entry["merged_at"] = now()
             self.save()
+
+        self.refresh_config()
 
     def remote_ref(self, ref):
         output = self.git.out("ls-remote", self.config.remote, ref)
