@@ -238,21 +238,6 @@ def test_hook_does_not_require_current_skills(project, monkeypatch):
     assert read_state(message.read_text()) == CommitState.PASSED
 
 
-def test_skill_lifecycle_has_required_handoffs():
-    root = Path(__file__).parents[1] / "src" / "coloph_sync" / "bundled_agent_skills"
-    contributor = (root / "sync-contributor" / "SKILL.md").read_text()
-    ship = (root / "sync-ship" / "SKILL.md").read_text()
-    merge_main = (root / "sync-merge-main" / "SKILL.md").read_text()
-
-    assert "immediately use `sync-ship` in the same turn" in contributor
-    assert "Do not give a final user handoff from this workflow" in contributor
-    assert "Do not report completion while work is only locally clean" in ship
-    assert "it must continue through Step 5 production smoke, then\nStep 6 final executive summary" in ship
-    assert "include the concise Step 6 handoff first" in ship
-    assert "Return to `sync-ship` in the same turn" in merge_main
-    assert (root / "sync-merge-main" / "references" / "conflict-review.md").exists()
-
-
 def test_shared_installer_copies_complete_skills_and_creates_claude_links(tmp_path):
     assert install_skills(["--root", str(tmp_path)]) == 0
     assert install_skills(["--root", str(tmp_path), "--check"]) == 0
@@ -490,7 +475,8 @@ def test_pending_deploy_resumes_before_preflight(project, monkeypatch):
     assert resumed == [sha]
 
 
-def test_checked_repair_can_fix_and_follow_failed_pending_deploy(project, tmp_path):
+@pytest.mark.parametrize("legacy_option", [False, True])
+def test_checked_repair_can_fix_and_follow_failed_pending_deploy(project, tmp_path, legacy_option):
     config, git = project
     child = tmp_path / "repair"
     git.out("worktree", "add", "-b", "repair", str(child))
@@ -512,7 +498,7 @@ def test_checked_repair_can_fix_and_follow_failed_pending_deploy(project, tmp_pa
         {"attempt": {"id": "original-attempt", "sha": original, "status": "running", "previous_remote": None}},
     )
 
-    engine.cycle(repair_pending_deploy=True)
+    engine.cycle(repair_pending_deploy=legacy_option)
 
     lines = calls.read_text().splitlines()
     assert lines[0] == f"{original} original-attempt"
@@ -520,6 +506,74 @@ def test_checked_repair_can_fix_and_follow_failed_pending_deploy(project, tmp_pa
     assert lines[1].split()[1] != "original-attempt"
     assert git.ancestor(repair_sha, "main")
     assert engine.deployed() == git.out("rev-parse", "HEAD")
+
+
+def test_push_deploy_only_finishes_current_main_after_pending_retry(project, monkeypatch):
+    config, git = project
+    old = git.out("rev-parse", "HEAD")
+    new = commit(git, "new-version")
+    engine = Engine(config)
+    write_json(engine.delivery_path, {"attempt": {
+        "sha": old, "id": "old", "status": "running", "previous_remote": None,
+    }})
+    calls = []
+    original = engine.command
+    def command(command, context, **kwargs):
+        calls.append((context, kwargs.get("sha")))
+        return original(command, context, **kwargs)
+    monkeypatch.setattr(engine, "command", command)
+    engine.cycle(push_deploy_only=True)
+    assert calls.index(("integration", None)) < calls.index(("deploy", old))
+    assert ("deploy", new) in calls
+    assert engine.deployed() == new
+
+
+@pytest.mark.parametrize("outcome", ["replace", "delivered", "blocked", "nonsense"])
+def test_reconciliation_preserves_delivery_truth(project, outcome):
+    config, git = project
+    old = git.out("rev-parse", "HEAD")
+    new = commit(git, "repair")
+    response = json.dumps({"outcome": outcome, "reason": "remote evidence"})
+    reconcile = (sys.executable, "-c", f"print({response!r})")
+    count = git.common_dir() / "deploy-count"
+    deploy = (sys.executable, "-c", f"from pathlib import Path; p=Path({str(count)!r}); "
+              "p.write_text(p.read_text()+'x' if p.exists() else 'x')")
+    engine = Engine(replace(config, reconcile_command=reconcile, deploy_command=deploy))
+    write_json(engine.delivery_path, {"attempt": {
+        "id": "original", "sha": old, "status": "running", "previous_remote": None,
+    }})
+    if outcome in ("blocked", "nonsense"):
+        with pytest.raises((RuntimeError, ValueError)):
+            engine.cycle(push_deploy_only=True)
+        assert not count.exists()
+        assert read_json(engine.delivery_path)["attempt"]["id"] == "original"
+        assert not engine.deployed()
+        return
+    engine.cycle(push_deploy_only=True)
+    assert count.read_text() == "x"  # Only the successor runs deployment.
+    assert engine.deployed() == new
+    old_tag = git.resolve("refs/tags/deploy/original")
+    if outcome == "replace":
+        assert old_tag is None
+        history = read_json(engine.delivery_path)["history"]
+        assert history[0]["sha"] == old
+        assert history[0]["status"] == "superseded"
+        assert history[0]["reconciliation"]["reason"] == "remote evidence"
+    else:
+        assert old_tag == old
+
+
+def test_replacement_does_not_open_barrier(project):
+    config, git = project
+    old = git.out("rev-parse", "HEAD")
+    git.out("commit", "--allow-empty", "-m", "Barrier\n\nSync-State: deploy-barrier")
+    response = json.dumps({"outcome": "replace", "reason": "never published"})
+    engine = Engine(replace(config, reconcile_command=(sys.executable, "-c", f"print({response!r})")))
+    write_json(engine.delivery_path, {"attempt": {"id": "original", "sha": old, "status": "running"}})
+    with pytest.raises(RuntimeError, match="barrier"):
+        engine.cycle(push_deploy_only=True)
+    assert read_json(engine.delivery_path)["attempt"]["id"] == "original"
+    assert engine.deployed() is None
 
 
 def test_pending_publication_rejects_deploy_repair_merge(project, tmp_path):

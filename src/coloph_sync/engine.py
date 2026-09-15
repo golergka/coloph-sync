@@ -3,6 +3,7 @@
 Project commands own checks and deployment internals.
 """
 
+import json
 import os
 import signal
 import subprocess
@@ -106,6 +107,52 @@ class Engine:
                     print("Final output tail:")
                     print(final_tail, end="" if final_tail.endswith("\n") else "\n", flush=True)
         result.check_returncode()
+        return result.stdout
+
+    def integration_check(self):
+        self.save("verify")
+        self.report["checks_status"] = "running"
+        self.save()
+        self.command(self.config.integration_check or self.config.commit_check, "integration")
+        self.report["checks_status"] = "passed"
+        self.save()
+
+    def reconcile(self, pending):
+        """Project evidence resolves uncertainty; a failure alone never permits replacement."""
+        if not self.config.reconcile_command:
+            return "retry"
+        self.save("reconcile")
+        output = self.command(
+            self.config.reconcile_command, "reconcile", sha=pending["sha"], attempt=pending["id"],
+            timeout=self.config.deploy_timeout,
+        )
+        result = json.loads(output)
+        if (
+            not isinstance(result, dict)
+            or result.get("outcome") not in ("delivered", "retry", "replace", "blocked")
+            or not isinstance(result.get("reason"), str)
+            or not result["reason"].strip()
+        ):
+            raise ValueError("Reconciliation requires an outcome and a nonempty reason")
+        delivery = read_json(self.delivery_path)
+        delivery["attempt"]["reconciliation"] = {**result, "at": now()}
+        write_json(self.delivery_path, delivery)
+        if result["outcome"] == "blocked":
+            raise RuntimeError(result["reason"])
+        if result["outcome"] == "delivered":
+            delivery["attempt"].update(status="completed", completed_at=now())
+            write_json(self.delivery_path, delivery)
+        if result["outcome"] == "replace":
+            head = self.git.out("rev-parse", "HEAD")
+            if head == pending["sha"] or not self.git.ancestor(pending["sha"], head):
+                raise RuntimeError("The failed deployment needs a checked successor before replacement")
+            if self.barrier("HEAD", self.deployed()):
+                raise RuntimeError("A replacement cannot bypass an undelivered deployment barrier")
+            delivery.setdefault("history", []).append({
+                **delivery.pop("attempt"), "status": "superseded", "replacement_sha": head, "closed_at": now(),
+            })
+            write_json(self.delivery_path, delivery)
+        return result["outcome"]
 
     def barrier(self, branch, deployed):
         # Original pending_deploy_barrier algorithm, using typed body states.
@@ -320,38 +367,36 @@ class Engine:
             raise RuntimeError("The integration branch must have a checked commit before running")
         pending = read_json(self.delivery_path).get("attempt", {})
         if pending and pending["status"] != "published":
-            if not repair_pending_deploy:
+            self.rollback = pending.get("rollback", False)
+            if self.manual_sha and self.git.resolve(self.manual_sha) != pending["sha"]:
+                raise RuntimeError("A different manual target cannot replace an unresolved deployment")
+            if pending["status"] == "completed":
+                if repair_pending_deploy:
+                    raise RuntimeError("A completed deploy only needs publication retry; do not merge a repair")
                 self.deploy(pending["sha"])
+            else:
+                if self.branch and not deploy_only and not push_deploy_only:
+                    repair_sha = self.git.resolve(self.branch)
+                    if not repair_sha:
+                        raise RuntimeError(f"Repair branch does not exist: {self.branch}")
+                    self.merge_in()
+                    if not self.git.ancestor(repair_sha, "HEAD"):
+                        raise RuntimeError(f"Repair branch was not fully merged: {self.branch}")
+                if self.git.out("rev-parse", "HEAD") != pending["sha"]:
+                    self.integration_check()
+                outcome = self.reconcile(pending)
+                if outcome != "replace":
+                    self.deploy(pending["sha"])
+            if deploy_only or self.git.out("rev-parse", "HEAD") == pending["sha"]:
                 return
-            if pending["status"] != "running":
-                raise RuntimeError("A completed deploy only needs publication retry; do not merge a repair")
-            if not self.branch:
-                raise RuntimeError("Select exactly one repair branch")
-            repair_sha = self.git.resolve(self.branch)
-            if not repair_sha:
-                raise RuntimeError(f"Repair branch does not exist: {self.branch}")
-            self.merge_in()
-            if not self.git.ancestor(repair_sha, "HEAD"):
-                raise RuntimeError(f"Repair branch was not fully merged: {self.branch}")
-            self.save("verify")
-            self.report["checks_status"] = "running"
-            self.save()
-            self.command(self.config.integration_check or self.config.commit_check, "integration")
-            self.report["checks_status"] = "passed"
-            self.save()
-            self.deploy(pending["sha"])
+            self.rollback = False
         if self.config.preflight_command:
             self.save("preflight")
             self.command(self.config.preflight_command, "preflight")
         if not deploy_only:
             if not push_deploy_only:
                 self.merge_in()
-            self.save("verify")
-            self.report["checks_status"] = "running"
-            self.save()
-            self.command(self.config.integration_check or self.config.commit_check, "integration")
-            self.report["checks_status"] = "passed"
-            self.save()
+            self.integration_check()
         sha = self.git.resolve(self.manual_sha) if self.manual_sha else self.git.out("rev-parse", "HEAD")
         if not sha:
             raise ValueError("Deployment target does not exist")

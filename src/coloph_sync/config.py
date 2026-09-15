@@ -13,6 +13,7 @@ class Config:
     merge_check: tuple[str, ...] = ()
     integration_check: tuple[str, ...] = ()
     preflight_command: tuple[str, ...] = ()
+    reconcile_command: tuple[str, ...] = ()
     main_ref: str = "main"
     remote: str = "origin"
     deployed_ref: str = "deployed"
@@ -36,7 +37,7 @@ def load_config(path: Path | None = None) -> Config:
     unknown = set(raw) - {field.name for field in fields(Config) if field.name != "root"}
     if unknown:
         raise ValueError(f"Unknown configuration keys: {sorted(unknown)}")
-    for name in ("commit_check", "merge_check", "integration_check", "deploy_command", "preflight_command"):
+    for name in ("commit_check", "merge_check", "integration_check", "deploy_command", "preflight_command", "reconcile_command"):
         value = raw.get(name, [])
         if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
             raise ValueError(f"{name} must be an argument array")

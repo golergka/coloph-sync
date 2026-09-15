@@ -1,10 +1,32 @@
-#!/bin/sh
-set -eu
+#!/usr/bin/env python3
+"""Deliver the requested Git tree, even when recovery uses newer tooling."""
+import os
+import shutil
+import subprocess
+import tarfile
+import tempfile
+from pathlib import Path
 
-: "${COLOPH_SYNC_COMMIT:?}"
-: "${WEB_ROOT:?}"
-
-release="$WEB_ROOT/releases/$COLOPH_SYNC_COMMIT"
-mkdir -p "$release"
-cp -R public/. "$release/"
-ln -sfn "$release" "$WEB_ROOT/current"
+target = os.environ["COLOPH_SYNC_COMMIT"]
+root = Path(os.environ["WEB_ROOT"]).resolve()
+target = subprocess.check_output(["git", "rev-parse", "--verify", f"{target}^{{commit}}"], text=True).strip()
+releases = root / "releases"
+releases.mkdir(parents=True, exist_ok=True)
+with tempfile.TemporaryDirectory(dir=releases) as temporary:
+    staging = Path(temporary)
+    archive = staging / "source.tar"
+    subprocess.run(["git", "archive", "--format=tar", "-o", str(archive), target, "public"], check=True)
+    with tarfile.open(archive) as stream:
+        stream.extractall(staging, filter="data")
+    release = releases / target
+    if not release.exists():
+        shutil.move(str(staging / "public"), release)
+    else:
+        # Never silently accept a directory left by an older, incorrect implementation.
+        expected = {p.relative_to(staging / "public"): p.read_bytes() for p in (staging / "public").rglob("*") if p.is_file()}
+        actual = {p.relative_to(release): p.read_bytes() for p in release.rglob("*") if p.is_file()}
+        if actual != expected:
+            raise SystemExit("Existing release contents differ from the requested commit")
+    link = staging / "current"
+    link.symlink_to(release)
+    os.replace(link, root / "current")

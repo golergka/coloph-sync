@@ -3,6 +3,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import time
 import tomllib
@@ -22,9 +23,9 @@ def run(*command, capture=False):
     return result.stdout.strip() if capture else ""
 
 
-def version():
-    with (ROOT / "pyproject.toml").open("rb") as stream:
-        value = tomllib.load(stream)["project"]["version"]
+def version(target=None):
+    source = run("git", "show", f"{target}:pyproject.toml", capture=True) if target else (ROOT / "pyproject.toml").read_text()
+    value = tomllib.loads(source)["project"]["version"]
     match = SEMVER.fullmatch(value)
     if not match:
         raise SystemExit(f"package version must be MAJOR.MINOR.PATCH: {value}")
@@ -103,33 +104,86 @@ def wait_for_install(version):
         time.sleep(INSTALL_INTERVAL)
 
 
+def verify_published(current):
+    with urllib.request.urlopen(f"https://pypi.org/pypi/{PACKAGE}/{current}/json", timeout=30) as response:
+        metadata = json.load(response)
+    names = {item["filename"] for item in metadata["urls"] if not item.get("yanked", False)}
+    required = {f"coloph_sync-{current}-py3-none-any.whl", f"coloph_sync-{current}.tar.gz"}
+    if metadata["info"]["version"] != current or not required <= names:
+        raise SystemExit(f"{current} publication is incomplete or yanked; reconcile registry artifacts")
+    wait_for_install(current)
+
+
 def ship_release(tag):
     item = release_run(tag)
     if item["status"] != "completed":
         run("gh", "run", "watch", str(item["databaseId"]), "--exit-status")
     elif item["conclusion"] != "success":
-        raise SystemExit(f"publication run {item['databaseId']} ended with {item['conclusion']}")
-    wait_for_install(tag[1:])
+        run("gh", "run", "rerun", str(item["databaseId"]), "--failed")
+        run("gh", "run", "watch", str(item["databaseId"]), "--exit-status")
+    verify_published(tag[1:])
+
+
+def reconcile(target):
+    """Only a terminal run with no started publisher permits a replacement."""
+    current, _ = version(target)
+    tag = f"v{current}"
+    tagged = remote_tag(tag)
+    if current in published_versions():
+        if not tagged or version(tagged)[0] != current:
+            return {"outcome": "blocked", "reason": "Published version does not match its source tag"}
+        run("git", "merge-base", "--is-ancestor", tagged, target)
+        verify_published(current)
+        return {"outcome": "delivered", "reason": f"{tag} is published and installable"}
+    if not tagged:
+        return {"outcome": "retry", "reason": "No release tag exists"}
+    if tagged != target or version(tagged)[0] != current:
+        return {"outcome": "blocked", "reason": "Release tag conflicts with the requested source"}
+    runs = json.loads(run(
+        "gh", "run", "list", "--workflow", "publish.yml", "--branch", tag, "--limit", "100",
+        "--json", "databaseId,status,conclusion,headSha", capture=True,
+    ))
+    if not runs or len(runs) == 100:
+        return {"outcome": "blocked", "reason": "Cannot establish the complete publication history"}
+    if any(item["status"] != "completed" for item in runs):
+        return {"outcome": "retry", "reason": "Publication is still running"}
+    for item in runs:
+        if item["headSha"] != target:
+            return {"outcome": "blocked", "reason": "Publication workflow source does not match the release"}
+        details = json.loads(run(
+            "gh", "run", "view", str(item["databaseId"]), "--json", "jobs", capture=True,
+        ))
+        publishers = [job for job in details["jobs"] if job["name"] == "publish"]
+        if len(publishers) != 1 or publishers[0]["conclusion"] != "skipped":
+            return {"outcome": "blocked", "reason": "Publication may have started; reconcile registry artifacts before replacement"}
+    return {"outcome": "replace", "reason": f"All {tag} workflows ended before publication; PyPI has no version {current}"}
 
 
 def main():
     target = os.environ.get("COLOPH_SYNC_COMMIT")
     if not target:
         raise SystemExit("COLOPH_SYNC_COMMIT is required")
+    if sys.argv[1:] == ["--reconcile"]:
+        print(json.dumps(reconcile(target)))
+        return
     remote_main = run("git", "ls-remote", "origin", "refs/heads/main", capture=True).split()
     if not remote_main or remote_main[0] != target:
         raise SystemExit("delivery target is not the current origin/main")
 
-    current, numeric = version()
+    current, numeric = version(target)
     tag = f"v{current}"
     tagged = remote_tag(tag)
     releases = published_versions()
     if tagged:
+        if version(tagged)[0] != current:
+            raise SystemExit(f"{tag} does not match the package version at its commit")
         run("git", "merge-base", "--is-ancestor", tagged, target)
         if current not in releases:
+            if tagged != target:
+                raise SystemExit("An unpublished release belongs to a different commit")
             ship_release(tag)
         else:
-            wait_for_install(current)
+            verify_published(current)
         print(f"Verified {target[:10]}; {tag} is already published")
         return
 
@@ -139,7 +193,17 @@ def main():
     if published and numeric <= max(published):
         raise SystemExit(f"new version {current} must be greater than the published versions")
 
-    run("gh", "release", "create", tag, "--target", target, "--title", tag, "--generate-notes")
+    if run("git", "rev-parse", "HEAD", capture=True) != target:
+        raise SystemExit("A new release requires its exact source checkout")
+    if run("git", "status", "--porcelain", capture=True):
+        raise SystemExit("A new release requires a clean checkout")
+    run("uv", "run", "python", "scripts/check.py")
+    run("python", "scripts/release.py", "build", "--tag", tag)
+    if run("git", "rev-parse", "HEAD", capture=True) != target or run("git", "status", "--porcelain", capture=True):
+        raise SystemExit("Release source changed during validation")
+
+    run("gh", "release", "create", tag, "--target", target, "--title", tag,
+        "--notes", f"Checked release {tag}.")
     ship_release(tag)
     print(f"Published {tag} from {target[:10]}")
 

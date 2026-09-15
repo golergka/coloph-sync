@@ -58,6 +58,7 @@ def status(engine, branch=None):
     actionable = bool(reason and entry.get("reason_code") != "barrier")
     error = report.get("error")
     checks = report.get("checks_status")
+    attempt = read_json(engine.delivery_path).get("attempt", {})
     verdict = (
         "action needed"
         if checks == "failed"
@@ -82,6 +83,7 @@ def status(engine, branch=None):
         "checks": checks,
         "last_merge_attempt": entry.get("last_merge_attempt"),
         "publication_pending": read_json(engine.delivery_path).get("attempt", {}).get("status") == "completed",
+        "pending_deployment": attempt if attempt and attempt["status"] != "published" else None,
     }
 
 
@@ -100,7 +102,12 @@ def render(value):
     if value["error"]:
         print(f"Last sync error: {value['error']['message']}")
     if value["publication_pending"]:
-        print("Deployment confirmed; publication pending")
+        print("Deployment confirmed; coordinator refs pending")
+    elif value.get("pending_deployment"):
+        attempt = value["pending_deployment"]
+        print(f"Pending delivery: {attempt['sha']} ({attempt['id']})")
+        if attempt.get("reconciliation"):
+            print(f"Recovery: {attempt['reconciliation']['reason']}")
 
 
 def main(argv=None):
@@ -118,9 +125,9 @@ def main(argv=None):
     run.add_argument(
         "--repair-pending-deploy",
         action="store_true",
-        help="Merge one checked repair branch, retry the pending deploy, then deliver the repair",
+        help="Compatibility option; run --once --branch NAME now recovers pending delivery automatically",
     )
-    run.add_argument("--push-deploy-only", action="store_true", help="Skip merges, then check, push, and deploy main")
+    run.add_argument("--push-deploy-only", action="store_true", help="Resolve pending delivery, then check, push, and deploy main without merges")
     deploy = sub.add_parser("deploy", help="Deploy through the shared coordinator")
     deploy.add_argument("--commit")
     deploy.add_argument("--rollback", action="store_true", help="Explicit operator recovery; never used by the loop")

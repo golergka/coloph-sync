@@ -41,6 +41,7 @@ The coordinator attempts merges; it does not resolve conflicts or write repairs.
 
 After an ordinary passed commit, immediately use `sync-ship` in the same turn.
 Do not give a final user handoff from this workflow.
+For an authorized repair on coordinator main, return directly to `sync-operator` for the recovery cycle.
 
 Skip `sync-ship` only when the user explicitly pauses the task, requests a local-only commit, or tells you not to wait for integration or delivery.
 

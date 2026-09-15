@@ -1,30 +1,40 @@
 ---
 name: sync-release
-description: Prepare and propose a versioned release from the main-branch coordinator. Use only when deliberately releasing a project managed by sync coordination.
+description: Carry out a project-defined versioned release through the coordinator, with automatic or deliberate version policy.
 ---
 
-# Prepare a release
+# Release through the coordinator
 
-Use this skill only in the clean main checkout operated by the main-branch coordinator. Do not use it in a contributor worktree, and do not ask a contributor to choose or bump a release version.
+Read the project release policy. The project owns version selection, release triggers, and publication checks.
+Some projects release every eligible commit. Others use a deliberate version change.
+Do not add manual version approval to an automatic release policy.
 
-## Prepare, do not publish
+Use the assigned main checkout. Stop its coordinator and wait for exit before release edits.
+Delete its operator reminder during deliberate release preparation.
+Use `sync-operator` for supervision and shared failures.
 
-Stop the sync loop with `uv run coloph-sync stop`. If it has an operator reminder, delete that reminder and verify the loop has exited. Do not start another coordinator while preparing the release.
+For deliberate releases, review changes since the last published version and apply the project compatibility rules.
+Check the declared version, existing tags, and published versions before proposing a version.
+If the user authorized only inspection or preparation, report the proposal without publishing.
+If release authorization and policy already determine the next action, proceed without asking again.
+Ask only when compatibility or intended scope remains ambiguous.
 
-Verify that the current branch is the configured `main` branch, the working tree is clean, and no deploy attempt is outstanding. Bring main to a deployable state: resolve any recorded coordinator failure through the established coordinator recovery procedure, run the project's required checks, and ensure the current commit is eligible for deployment. Do not repair contributor branches from this workflow.
+Make the required version change and run the project release checks and build.
+Create a checked commit. Then run:
 
-Find the most recent versioned release and read every change from that release through `HEAD`, including merge commits and the relevant diffs. Use the project’s documented SemVer rules to determine whether the changes require a major, minor, patch, or no version change. Check the declared package version and published versions so the proposed version is valid and new.
+```sh
+uv run coloph-sync run --push-deploy-only
+```
 
-Before editing a version, creating a release commit or tag, pushing, or running deployment, report to the user:
+This command resolves pending delivery before it delivers current main. It does not merge contributor branches.
+Project commands must enforce source, version, and publication prerequisites before irreversible changes.
+Do not rely on this skill as the only guard against an invalid release.
 
-- the last release and the changes since it;
-- the proposed SemVer change and resulting version, or why no release is warranted;
-- the checks and deployment steps that will follow.
+If delivery fails, diagnose and repair through `sync-operator` within existing authorization.
+Use project reconciliation to distinguish running work, confirmed success, and a failed release that permits replacement.
+Never overwrite immutable tags or artifacts. A checked replacement follows project version policy.
+Do not change versions merely to escape an unknown publication outcome.
 
-Ask for confirmation. This confirmation is the boundary for all release mutations. Do not infer it from a request merely to prepare or inspect a release.
-
-## After confirmation
-
-Make the approved version change on main, run the project’s required pre-release checks and build, commit the checked release change, then use the coordinator's normal `uv run coloph-sync run --push-deploy-only` path to push and deploy it. Verify the project-defined publication result before reporting completion.
-
-If the release cannot proceed, leave the loop stopped and report the concrete blocker. Do not roll back, force-push, or select a different version without fresh user direction.
+Check actual publication and installation before reporting a release complete.
+An existing Git tag, a successful push, or branch delivery alone does not prove package publication.
+Keep the loop stopped until recovery succeeds. Resume only when the user requested continuous operation.

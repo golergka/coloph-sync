@@ -4,6 +4,15 @@ Commit checks, local worktree integration, and deployment coordination for any G
 The utility is written in Python. Projects integrate through commands, not Python imports.
 Licensed under GPL-3.0-only.
 
+## Principles
+
+1. **Work independently; coordinate shared changes.** Contributors own their work. One coordinator integrates, checks, and delivers shared changes.
+2. **Projects define success; coloph-sync provides the machinery.** Checks, release policy, and delivery meaning belong to the project.
+3. **Automate rules; use judgment for unresolved choices.** Scripts enforce mechanical rules. Agents interpret intent, diagnose failures, and repair code.
+4. **Claims must follow evidence.** Checks, versions, and delivery records describe the actual work they refer to. Changed work needs fresh evidence.
+5. **Interruption must not change correctness.** Retries preserve completed results and account for uncertain effects.
+6. **Failure must have a path back to progress.** Isolate failures and preserve useful work. Permit checked repairs and safe replacements without false success.
+
 ## Install and configure
 
 Add the CLI to the repository's development dependencies and commit the updated project file and lockfile:
@@ -56,18 +65,19 @@ Contributors work only in their assigned linked worktrees. Reserve the clean `ma
 Codex discovers the installed workflows from `.agents/skills/`.
 Run `uv run coloph-sync run --once` in the clean main checkout, or `uv run coloph-sync run` for continuous operation.
 Use `run --branch NAME` to restrict integration to one local worktree branch.
-Use `run --push-deploy-only` to skip branch merges, run the integration check, push main, and deploy it.
+Use `run --push-deploy-only` to resolve pending delivery, skip branch merges, check main, push it, and deploy it.
 After a deployment command fails because its checked-in implementation is broken, put the repair on one checked
 contributor branch. From the stopped coordinator checkout, run
-`uv run coloph-sync run --once --branch NAME --repair-pending-deploy`. This merges and checks only that branch,
-retries the outstanding deployment with its original commit and attempt identity, then pushes and deploys the repair
-commit as a new attempt. Do not use this mode for a publication-only retry.
+`uv run coloph-sync run --once --branch NAME`. This merges and checks only that branch,
+resolves the outstanding deployment, then pushes and deploys the repair commit as a new attempt.
+For a checked repair already on main, use `uv run coloph-sync run --once`.
+The older `--repair-pending-deploy` option remains available for compatibility. Normal operation does not require it.
 A repository adopted after feature work has begun can merge its active worktree branches with `uv run coloph-sync adopt --all`.
 It runs the normal merge check for each branch, preserves its existing commits, and records each successful adoption in the shared Git directory.
 Branches that conflict or fail their merge check remain unadopted; later commits still require valid `Sync-State` metadata.
 A delivery command is required. Remote branches and cloud supervision are outside this release.
 
-Optional configuration: `preflight_command`, `deployed_ref` (default `deployed`), `deploy_tag_prefix` (default `deploy`),
+Optional configuration: `preflight_command`, `reconcile_command`, `deployed_ref` (default `deployed`), `deploy_tag_prefix` (default `deploy`),
 `check_timeout` and `deploy_timeout` (14400 seconds), `merge_timeout` (1500 seconds), `interval` (60 seconds), and
 `live_output_limit` (65536 characters). When a project command exceeds `live_output_limit`, coloph-sync continues to
 write its complete output to the run log, prints the log path once, and prints the final 4096 characters when it ends.
@@ -125,7 +135,7 @@ Repeated calls with the same attempt ID and target must reconcile or resume safe
 The command owns all infrastructure details. It must not publish the coordinator's deployment refs.
 
 For a versioned package, delivery does not have to publish every commit. This repository demonstrates that pattern.
-The project can use a version change as its release request.
+The project can use a version change as its release request or calculate a version automatically from each eligible commit.
 The command publishes only a new declared version. If the version is unchanged, the command can complete without publication.
 The project owns its version policy and registry checks. Coloph-sync does not select or increase versions.
 
@@ -135,10 +145,48 @@ In this configuration, `deployed` means that the project-defined verification co
 The engine persists completion before publishing an immutable `deploy/<attempt-id>` tag and the moving `deployed` tag.
 Publication retries do not redeploy a completed attempt. Concurrent changes to the moving tag fail explicitly.
 A lost success acknowledgment remains uncertain and requires reconciliation by the deployment command on retry.
-An outstanding attempt is resolved before another integration cycle. Rollback is not automatic.
+An outstanding attempt is resolved before another delivery. A selected checked repair can merge before that resolution.
+Rollback is not automatic.
 Manual deployment uses `uv run coloph-sync deploy` and the same lock and records.
 Explicit recovery uses `uv run coloph-sync deploy --commit SHA --rollback`. The command receives `COLOPH_SYNC_ROLLBACK=1`.
 The deployment command owns whether that recovery is safe. Normal runs never select rollback.
+
+### Recovery evidence
+
+The deployment command can run from a newer checked checkout during recovery.
+It must use `COLOPH_SYNC_COMMIT` for payload contents and version selection, not the checkout contents.
+Repaired tooling can change how delivery works without changing the requested payload.
+An unchanged retry must reconcile external work before it repeats an irreversible action.
+
+Projects can configure `reconcile_command` for automatic recovery decisions.
+It receives the deployment environment with `COLOPH_SYNC_CONTEXT=reconcile`.
+It must inspect external state without starting another deployment.
+Its output contains exactly one JSON object, for example:
+
+```json
+{"outcome": "replace", "reason": "The workflow ended before publication; the registry contains no artifacts."}
+```
+
+- `delivered`: evidence confirms delivery of the exact target. The coordinator records success without another deployment.
+- `retry`: the deployment command can safely resume the same target and attempt.
+- `replace`: the old operation is terminal, and evidence proves that a successor is safe.
+- `blocked`: the reason identifies missing evidence or a required repair. The coordinator stops without changing delivery records to success.
+
+A nonzero exit, invalid output, or unknown outcome stops recovery. Every outcome requires a nonempty reason.
+Replacement requires a checked descendant on main and cannot cross an undelivered deployment barrier.
+The coordinator preserves the old attempt and evidence in delivery history without marking it deployed.
+The project command owns evidence about partial publication, active remote jobs, and external effects.
+The coordinator never infers safe replacement from a failed command or timeout alone.
+
+Without `reconcile_command`, the coordinator retries the original deployment command with the original target and attempt.
+Completed deployments only retry coordinator refs. They never run reconciliation or deployment again.
+
+### Project command lessons
+
+Local checks and CI use the same validation command. New releases also build and exercise their artifacts before tag creation.
+Tags and artifacts refer to the checked source. Existing immutable contents are checked, never overwritten.
+Network failures can occur after validation. Project commands therefore handle existing releases and partial success explicitly.
+Branch delivery and package publication remain separate facts under project policy.
 
 ## Status and agents
 
@@ -179,3 +227,4 @@ uv run ruff check .
 ```
 
 The tests use disposable Git repositories and local remotes. They do not deploy real services.
+The [recovery exercises](example/recovery-lab/README.md) create separate projects with deliberate failures for agent evaluation.

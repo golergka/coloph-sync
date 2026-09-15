@@ -4,7 +4,7 @@
     "provider": "coloph-install-skills"
   },
   "sync-contributor": {
-    "digest": "61b36ad8bd6f6a71723e6d2407d034e2b84e529ec09e430e4f5e4284cc3976cb",
+    "digest": "000255a64351530b1ce39c11e7d0be77230e49c1ffbdc4ea4f39df43e33ebd87",
     "provider": "coloph-sync"
   },
   "sync-merge-main": {
@@ -12,15 +12,15 @@
     "provider": "coloph-sync"
   },
   "sync-operator": {
-    "digest": "7e2cdca1a973f4fb8bbf311ab2e4312587f7ad6b05312e0fc3846415e29a260b",
+    "digest": "e2c2d320ead31182b68d6726913d30bca03c08c63297ed56201867841e10c041",
     "provider": "coloph-sync"
   },
   "sync-release": {
-    "digest": "e46567dfae103701954c12f519ea84170987b91fae3612e52ea6589fe8dd3d41",
+    "digest": "864e5f9aa091491a04286c698ecb17af4e0ba044108ae48c71ba373954ed776e",
     "provider": "coloph-sync"
   },
   "sync-ship": {
-    "digest": "3e506b133bba7b1fc478306af729295c6298a92fb74e4ddc8471cd7851b8935c",
+    "digest": "d735fff067aeef1c40585132f799be018660a1cae8182f8eae3b44e2e61cda82",
     "provider": "coloph-sync"
   }
 }
