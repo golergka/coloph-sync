@@ -53,7 +53,8 @@ The coordinator checks the repair, resolves pending delivery, then delivers the 
 Deployment tooling, configuration, and payload must all come from that successor commit.
 Never run repaired deployment tooling against an older payload. Reconciliation only inspects the old operation's remote status.
 The project reconciliation command determines whether to retry, record success, or replace a conclusively failed attempt.
-If HEAD changed, the project reconciliation command must confirm success or safe replacement before the successor deploys.
+The project deployment command owns any external recovery and receives previous attempt details.
+A synchronous failure that leaves no work active needs no remote checks. A separate reconciliation command is optional.
 Repair the project command when it cannot distinguish remote outcomes. Never infer that a timeout means no external effect.
 Never edit coordinator records, bypass checks or barriers, force-push, or run a competing deployment to escape a failure.
 

@@ -131,6 +131,9 @@ At a deployment barrier, only its parent can merge until that parent has complet
 
 The command receives `COLOPH_SYNC_COMMIT`, `COLOPH_SYNC_ATTEMPT_ID`, `COLOPH_SYNC_RUN_ID`,
 `COLOPH_SYNC_DEPLOYED_COMMIT`, and `COLOPH_SYNC_CONTEXT=deploy`.
+`COLOPH_SYNC_PREVIOUS_ATTEMPTS` contains a JSON list of prior unconfirmed attempts, with `id` and `sha` for each.
+The project command owns recovery of any external work from those attempts before it reports success.
+Synchronous commands that leave no work active after failure need no remote checks.
 Exit 0 confirms the project-defined delivery of the exact target. Nonzero leaves the attempt unconfirmed and stops the loop.
 Repeated calls with the same attempt ID and target must reconcile or resume safely, including remote work still running.
 The command owns all infrastructure details. It must not publish the coordinator's deployment refs.
@@ -181,8 +184,9 @@ The coordinator preserves the old attempt and evidence in delivery history witho
 The project command owns evidence about partial publication, active remote jobs, and external effects.
 The coordinator never infers safe replacement from a failed command or timeout alone.
 
-Without `reconcile_command`, a retry is possible only while the target remains HEAD.
-After a repair changes HEAD, unresolved remote work stops delivery until reconciliation confirms success or safe replacement.
+Without `reconcile_command`, an unchanged HEAD retries the same attempt. After a repair, the coordinator deploys the new HEAD.
+The deployment command receives the prior attempt details and handles any project-specific recovery.
+Coloph-sync does not assume that a failed command started remote work or require a separate remote check.
 Completed deployments only retry coordinator refs. They never run reconciliation or deployment again.
 
 ### Project command lessons

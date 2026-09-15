@@ -510,7 +510,7 @@ def test_checked_repair_deploys_only_successor(project, tmp_path, legacy_option)
     assert engine.deployed() == git.out("rev-parse", "HEAD")
 
 
-def test_repair_never_redeploys_old_commit_without_reconciliation(project, monkeypatch):
+def test_synchronous_repair_deploys_head_without_remote_reconciliation(project, monkeypatch):
     config, git = project
     old = git.out("rev-parse", "HEAD")
     new = commit(git, "new-version")
@@ -524,11 +524,10 @@ def test_repair_never_redeploys_old_commit_without_reconciliation(project, monke
         calls.append((context, kwargs.get("sha")))
         return original(command, context, **kwargs)
     monkeypatch.setattr(engine, "command", command)
-    with pytest.raises(RuntimeError, match="will deploy HEAD"):
-        engine.cycle(push_deploy_only=True)
+    engine.cycle(push_deploy_only=True)
     assert ("integration", None) in calls
-    assert not any(context == "deploy" for context, _ in calls)
-    assert engine.deployed() is None
+    assert [(context, sha) for context, sha in calls if context == "deploy"] == [("deploy", new)]
+    assert engine.deployed() == new
     assert git.out("rev-parse", "HEAD") == new
 
 

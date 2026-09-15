@@ -56,12 +56,18 @@ class Engine:
         return delivery.get("deployed_sha") or self.git.resolve(f"refs/tags/{self.config.deployed_ref}")
 
     def command(self, command, context, *, sha=None, attempt=None, timeout=None):
+        history = read_json(self.delivery_path).get("history", [])
+        previous_attempts = [
+            {"id": item["id"], "sha": item["sha"]}
+            for item in history if item.get("status") == "superseded" and not item.get("resolved_by")
+        ]
         env = {
             **os.environ,
             "COLOPH_SYNC_CONTEXT": context,
             "COLOPH_SYNC_RUN_ID": self.run_id,
             "COLOPH_SYNC_COMMIT": sha or self.git.out("rev-parse", "HEAD"),
             "COLOPH_SYNC_ATTEMPT_ID": attempt or "",
+            "COLOPH_SYNC_PREVIOUS_ATTEMPTS": json.dumps(previous_attempts),
             "COLOPH_SYNC_DEPLOYED_COMMIT": self.deployed() or "",
             "COLOPH_SYNC_ROLLBACK": "1" if self.rollback else "0",
             "COLOPH_SYNC_MODE": self.mode,
@@ -128,15 +134,18 @@ class Engine:
         self.config = updated
 
     def reconcile(self, pending):
-        """Project evidence resolves uncertainty; a failure alone never permits replacement."""
+        """Project commands own remote recovery; the coordinator selects checked work."""
         if not self.config.reconcile_command:
-            return "retry"
-        self.save("reconcile")
-        output = self.command(
-            self.config.reconcile_command, "reconcile", sha=pending["sha"], attempt=pending["id"],
-            timeout=self.config.deploy_timeout,
-        )
-        result = json.loads(output)
+            if self.git.out("rev-parse", "HEAD") == pending["sha"]:
+                return "retry"
+            result = {"outcome": "replace", "reason": "Deploy repaired HEAD; the project command owns recovery of prior attempts"}
+        else:
+            self.save("reconcile")
+            output = self.command(
+                self.config.reconcile_command, "reconcile", sha=pending["sha"], attempt=pending["id"],
+                timeout=self.config.deploy_timeout,
+            )
+            result = json.loads(output)
         if (
             not isinstance(result, dict)
             or result.get("outcome") not in ("delivered", "retry", "replace", "blocked")
@@ -372,6 +381,9 @@ class Engine:
                 self.config.deploy_command, "deploy", sha=sha, attempt=attempt["id"], timeout=self.config.deploy_timeout
             )
             attempt.update(status="completed", completed_at=now())
+            for item in delivery.get("history", []):
+                if item.get("status") == "superseded" and not item.get("resolved_by"):
+                    item["resolved_by"] = attempt["id"]
             write_json(self.delivery_path, delivery)
         self.save("publish")
         self.publish(delivery)
