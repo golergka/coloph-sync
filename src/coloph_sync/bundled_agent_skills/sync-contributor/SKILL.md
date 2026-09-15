@@ -39,6 +39,9 @@ The coordinator attempts merges; it does not resolve conflicts or write repairs.
 
 ## Required closeout handoff
 
+For a repair assigned by an operator, notify that operator after the checked commit.
+Include the repair branch, commit, checks performed, and any remaining limitations. Do not start the coordinator from this checkout.
+
 After an ordinary passed commit, immediately use `sync-ship` in the same turn.
 Do not give a final user handoff from this workflow.
 For an authorized repair on coordinator main, return directly to `sync-operator` for the recovery cycle.

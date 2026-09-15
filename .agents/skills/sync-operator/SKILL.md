@@ -32,6 +32,16 @@ Separate a branch failure from a shared integration or delivery failure through 
   Explicit user authorization permits contributor repairs in the stopped coordinator checkout.
 - If authorization does not cover a required repair, identify the missing authority precisely.
 
+If no contributor owns a shared failure, keep responsibility for its diagnosis and recovery.
+Assign the repair to a contributor within existing authorization, or repair it yourself in an authorized checkout.
+If neither path is authorized, request a repair assignment. Do not create or enter another worktree without authorization.
+
+Give the repair owner the failure evidence, expected result, and this operator task's identity.
+Require a completion message with the repair branch, checked commit, checks performed, and any remaining limitations.
+Keep supervision active while the package process is stopped for repair. Record the repair owner and branch in the reminder.
+On completion notification or observation of the checked repair tip, run the recovery cycle below.
+If the repair fails, continue diagnosis with its owner. A stopped package process does not end operator responsibility.
+
 After a checked repair, use the normal coordinator command:
 
 ```sh

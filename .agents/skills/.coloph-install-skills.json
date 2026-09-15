@@ -4,7 +4,7 @@
     "provider": "coloph-install-skills"
   },
   "sync-contributor": {
-    "digest": "000255a64351530b1ce39c11e7d0be77230e49c1ffbdc4ea4f39df43e33ebd87",
+    "digest": "136a177fc237c4419a9a5bac5e2444da53416979aa66ab94b8453bf926705deb",
     "provider": "coloph-sync"
   },
   "sync-merge-main": {
@@ -12,7 +12,7 @@
     "provider": "coloph-sync"
   },
   "sync-operator": {
-    "digest": "e2c2d320ead31182b68d6726913d30bca03c08c63297ed56201867841e10c041",
+    "digest": "fcf1ffaf39baeef320d3ce738dd43b2f366415aad28e46815e7ef264ff0df019",
     "provider": "coloph-sync"
   },
   "sync-release": {
