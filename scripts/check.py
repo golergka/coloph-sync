@@ -11,6 +11,7 @@ for name in local_names:
 
 for command in (
     ("uv", "lock", "--check"),
+    ("uv", "run", "coloph-install-skills", "--check"),
     ("uv", "run", "ruff", "check", "."),
     ("uv", "run", "pytest", "-q"),
 ):
