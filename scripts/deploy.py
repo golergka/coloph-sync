@@ -166,6 +166,8 @@ def main():
     if sys.argv[1:] == ["--reconcile"]:
         print(json.dumps(reconcile(target)))
         return
+    if run("git", "rev-parse", "HEAD", capture=True) != target:
+        raise SystemExit("Deployment tooling and payload must come from HEAD")
     remote_main = run("git", "ls-remote", "origin", "refs/heads/main", capture=True).split()
     if not remote_main or remote_main[0] != target:
         raise SystemExit("delivery target is not the current origin/main")

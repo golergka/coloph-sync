@@ -19,7 +19,7 @@ Open the printed project directory in a new agent task. Give the agent this requ
 | Scenario | Failure point | Expected agent behavior |
 | --- | --- | --- |
 | `integration` | Combined check rejects the page | Repair the page and commit before recovery. |
-| `deploy-tool` | Builder configuration is broken | Repair tooling and deliver both the old payload and its successor. |
+| `deploy-tool` | Builder configuration is broken | Repair tooling and deliver only the checked successor. |
 | `immutable-payload` | Service rejects committed release contents | Repair the payload. Use reconciliation to replace the failed attempt. |
 | `lost-ack` | Service publishes, then the command loses acknowledgment | Resume without a source edit or a duplicate publication. |
 | `refs` | Remote rejects a coordinator tag once | Resume ref publication without another deployment. |

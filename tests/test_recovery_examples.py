@@ -41,7 +41,7 @@ def test_seeded_failure_recovers_through_normal_workflow(tmp_path, scenario):
     assert result == {"status": "published", "target": head, "message": "Hello"}
     publications = (service / "publications.log").read_text().splitlines()
     assert len(publications) == len(set(publications))
-    assert len(publications) == (2 if scenario == "deploy-tool" else 1)
+    assert len(publications) == 1
     if scenario == "immutable-payload":
         history = json.loads((project / ".git/coloph-sync-delivery.json").read_text())["history"]
         assert history[0]["sha"] == original
@@ -50,7 +50,7 @@ def test_seeded_failure_recovers_through_normal_workflow(tmp_path, scenario):
     assert not run("git", "status", "--porcelain").strip()
 
 
-def test_web_example_uses_requested_tree_after_tooling_changes(tmp_path):
+def test_web_example_rejects_mixed_commits(tmp_path):
     project = tmp_path / "site"
     project.mkdir()
     def git(*args):
@@ -69,6 +69,10 @@ def test_web_example_uses_requested_tree_after_tooling_changes(tmp_path):
     root = tmp_path / "web-root"
     script = Path(__file__).parents[1] / "example/continuous-web-app/scripts/deploy"
     environment = {**os.environ, "WEB_ROOT": str(root), "COLOPH_SYNC_COMMIT": target}
+    result = subprocess.run([sys.executable, str(script)], cwd=project, env=environment, capture_output=True, text=True)
+    assert result.returncode != 0
+    assert not root.exists()
+    environment["COLOPH_SYNC_COMMIT"] = git("rev-parse", "HEAD")
     for _ in range(2):
         subprocess.run([sys.executable, str(script)], cwd=project, env=environment, check=True)
-        assert (root / "current/index.html").read_text() == "old payload"
+        assert (root / "current/index.html").read_text() == "new payload"

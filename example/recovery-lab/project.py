@@ -31,7 +31,9 @@ def main():
         elif previous.get("status") == "failed":
             outcome, reason = "replace", "The service rejected the payload before publication; no operation remains active"
         else:
-            outcome, reason = "retry", "No publication exists for this target"
+            head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+            outcome = "replace" if head != target else "retry"
+            reason = "No publication exists and this synchronous service has no active operation"
         print(json.dumps({"outcome": outcome, "reason": reason}))
         return
     if previous.get("status") == "published":

@@ -149,14 +149,16 @@ A lost success acknowledgment remains uncertain and requires reconciliation by t
 An outstanding attempt is resolved before another delivery. A selected checked repair can merge before that resolution.
 Rollback is not automatic.
 Manual deployment uses `uv run coloph-sync deploy` and the same lock and records.
+An explicit `--commit` must match the checked-out HEAD. A historical target cannot use a newer checkout's deployment code.
 Explicit recovery uses `uv run coloph-sync deploy --commit SHA --rollback`. The command receives `COLOPH_SYNC_ROLLBACK=1`.
 The deployment command owns whether that recovery is safe. Normal runs never select rollback.
 
 ### Recovery evidence
 
-The deployment command can run from a newer checked checkout during recovery.
-It must use `COLOPH_SYNC_COMMIT` for payload contents and version selection, not the checkout contents.
-Repaired tooling can change how delivery works without changing the requested payload.
+Deployment tooling, configuration, and payload come from one checked commit: HEAD.
+The coordinator refuses to execute deployment commands for an older commit from a newer checkout.
+After a repair, the coordinator deploys the checked successor. It never retries the failed commit with repaired tooling.
+Reconciliation can inspect an older operation's remote status, but cannot deploy that operation.
 An unchanged retry must reconcile external work before it repeats an irreversible action.
 
 Projects can configure `reconcile_command` for automatic recovery decisions.
@@ -169,7 +171,7 @@ Its output contains exactly one JSON object, for example:
 ```
 
 - `delivered`: evidence confirms delivery of the exact target. The coordinator records success without another deployment.
-- `retry`: the deployment command can safely resume the same target and attempt.
+- `retry`: the deployment command can safely resume the same target and attempt only while that target remains HEAD.
 - `replace`: the old operation is terminal, and evidence proves that a successor is safe.
 - `blocked`: the reason identifies missing evidence or a required repair. The coordinator stops without changing delivery records to success.
 
@@ -179,7 +181,8 @@ The coordinator preserves the old attempt and evidence in delivery history witho
 The project command owns evidence about partial publication, active remote jobs, and external effects.
 The coordinator never infers safe replacement from a failed command or timeout alone.
 
-Without `reconcile_command`, the coordinator retries the original deployment command with the original target and attempt.
+Without `reconcile_command`, a retry is possible only while the target remains HEAD.
+After a repair changes HEAD, unresolved remote work stops delivery until reconciliation confirms success or safe replacement.
 Completed deployments only retry coordinator refs. They never run reconciliation or deployment again.
 
 ### Project command lessons

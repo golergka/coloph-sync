@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deliver the requested Git tree, even when recovery uses newer tooling."""
+"""Deliver one checked commit with its own tooling and payload."""
 import os
 import shutil
 import subprocess
@@ -10,6 +10,9 @@ from pathlib import Path
 target = os.environ["COLOPH_SYNC_COMMIT"]
 root = Path(os.environ["WEB_ROOT"]).resolve()
 target = subprocess.check_output(["git", "rev-parse", "--verify", f"{target}^{{commit}}"], text=True).strip()
+head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+if target != head:
+    raise SystemExit("Deployment tooling and payload must come from HEAD")
 releases = root / "releases"
 releases.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(dir=releases) as temporary:

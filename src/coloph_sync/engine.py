@@ -336,6 +336,10 @@ class Engine:
     def deploy(self, sha):
         delivery = read_json(self.delivery_path)
         previous = delivery.get("attempt", {})
+        if sha != self.git.out("rev-parse", "HEAD") and not (
+            previous.get("sha") == sha and previous.get("status") == "completed"
+        ):
+            raise RuntimeError("Deployment tooling and payload must come from HEAD; an older commit cannot be deployed here")
         if previous and previous["status"] != "published":
             if previous["sha"] != sha:
                 raise RuntimeError(
@@ -361,6 +365,8 @@ class Engine:
             delivery["attempt"] = attempt
             write_json(self.delivery_path, delivery)
         if attempt["status"] != "completed":
+            if sha != self.git.out("rev-parse", "HEAD"):
+                raise RuntimeError("Deployment tooling and payload must come from HEAD; an older commit cannot be deployed here")
             self.save("deploy")
             self.command(
                 self.config.deploy_command, "deploy", sha=sha, attempt=attempt["id"], timeout=self.config.deploy_timeout
@@ -397,6 +403,12 @@ class Engine:
                 if self.git.out("rev-parse", "HEAD") != pending["sha"]:
                     self.integration_check()
                 outcome = self.reconcile(pending)
+                if outcome == "retry" and self.git.out("rev-parse", "HEAD") != pending["sha"]:
+                    raise RuntimeError(
+                        "The repair will deploy HEAD, not the failed commit. "
+                        "Reconcile the old remote operation before replacing it: "
+                        "the project reconcile_command must confirm delivered or replace."
+                    )
                 if outcome != "replace":
                     self.deploy(pending["sha"])
             if deploy_only or self.git.out("rev-parse", "HEAD") == pending["sha"]:

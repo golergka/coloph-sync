@@ -476,7 +476,7 @@ def test_pending_deploy_resumes_before_preflight(project, monkeypatch):
 
 
 @pytest.mark.parametrize("legacy_option", [False, True])
-def test_checked_repair_can_fix_and_follow_failed_pending_deploy(project, tmp_path, legacy_option):
+def test_checked_repair_deploys_only_successor(project, tmp_path, legacy_option):
     config, git = project
     child = tmp_path / "repair"
     git.out("worktree", "add", "-b", "repair", str(child))
@@ -491,7 +491,9 @@ def test_checked_repair_can_fix_and_follow_failed_pending_deploy(project, tmp_pa
         "p.write_text((p.read_text() if p.exists() else '') + "
         "os.environ['COLOPH_SYNC_COMMIT'] + ' ' + os.environ['COLOPH_SYNC_ATTEMPT_ID'] + '\\n')",
     )
-    engine = Engine(replace(config, deploy_command=command))
+    response = json.dumps({"outcome": "replace", "reason": "No external work remains"})
+    engine = Engine(replace(config, deploy_command=command,
+                           reconcile_command=(sys.executable, "-c", f"print({response!r})")))
     engine.branch = "repair"
     write_json(
         engine.delivery_path,
@@ -501,14 +503,14 @@ def test_checked_repair_can_fix_and_follow_failed_pending_deploy(project, tmp_pa
     engine.cycle(repair_pending_deploy=legacy_option)
 
     lines = calls.read_text().splitlines()
-    assert lines[0] == f"{original} original-attempt"
-    assert lines[1].split()[0] == git.out("rev-parse", "HEAD")
-    assert lines[1].split()[1] != "original-attempt"
+    assert len(lines) == 1
+    assert lines[0].split()[0] == git.out("rev-parse", "HEAD")
+    assert lines[0].split()[1] != "original-attempt"
     assert git.ancestor(repair_sha, "main")
     assert engine.deployed() == git.out("rev-parse", "HEAD")
 
 
-def test_push_deploy_only_finishes_current_main_after_pending_retry(project, monkeypatch):
+def test_repair_never_redeploys_old_commit_without_reconciliation(project, monkeypatch):
     config, git = project
     old = git.out("rev-parse", "HEAD")
     new = commit(git, "new-version")
@@ -522,10 +524,22 @@ def test_push_deploy_only_finishes_current_main_after_pending_retry(project, mon
         calls.append((context, kwargs.get("sha")))
         return original(command, context, **kwargs)
     monkeypatch.setattr(engine, "command", command)
-    engine.cycle(push_deploy_only=True)
-    assert calls.index(("integration", None)) < calls.index(("deploy", old))
-    assert ("deploy", new) in calls
-    assert engine.deployed() == new
+    with pytest.raises(RuntimeError, match="will deploy HEAD"):
+        engine.cycle(push_deploy_only=True)
+    assert ("integration", None) in calls
+    assert not any(context == "deploy" for context, _ in calls)
+    assert engine.deployed() is None
+    assert git.out("rev-parse", "HEAD") == new
+
+
+def test_manual_old_target_cannot_mix_commits_or_create_attempt(project):
+    config, git = project
+    old = git.out("rev-parse", "HEAD")
+    commit(git, "new-tooling")
+    engine = Engine(config)
+    with pytest.raises(RuntimeError, match="must come from HEAD"):
+        engine.deploy(old)
+    assert not read_json(engine.delivery_path)
 
 
 @pytest.mark.parametrize("outcome", ["replace", "delivered", "blocked", "nonsense"])
@@ -586,7 +600,11 @@ def test_checked_repair_reloads_project_commands_in_same_cycle(project, tmp_path
     git.out("push", "origin", "main")
     repair = tmp_path / "config-repair"
     git.out("worktree", "add", "-b", "repair", str(repair))
-    (repair / "coloph-sync.toml").write_text('commit_check = ["true"]\ndeploy_command = ["true"]\n')
+    response = json.dumps({"outcome": "replace", "reason": "The false command performed no delivery"})
+    reconcile = json.dumps([sys.executable, "-c", f"print({response!r})"])
+    (repair / "coloph-sync.toml").write_text(
+        'commit_check = ["true"]\ndeploy_command = ["true"]\n' + f'reconcile_command = {reconcile}\n'
+    )
     branch = Git(repair)
     branch.out("commit", "-am", "Repair command\n\nSync-State: passed")
     engine = Engine(load_config(path), config_path=path)
