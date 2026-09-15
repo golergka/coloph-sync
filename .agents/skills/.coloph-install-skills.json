@@ -12,11 +12,11 @@
     "provider": "coloph-sync"
   },
   "sync-operator": {
-    "digest": "ec0163217f8f64179100938824844c1b5c576d0332ce467009efdef3f0d09487",
+    "digest": "605cce4376eb1eca75d6bfd7344f8023b36f7d9572f2b58c31adbda5f931872e",
     "provider": "coloph-sync"
   },
   "sync-release": {
-    "digest": "732d961de13cd892f85035d7755e58cb325c03c18203ca43aa00f6ac87e3c8dd",
+    "digest": "bd4ab7ef77e9ae20015a70259d7d04332548d43ea88b1c424fe04cddc120d6dc",
     "provider": "coloph-sync"
   },
   "sync-ship": {

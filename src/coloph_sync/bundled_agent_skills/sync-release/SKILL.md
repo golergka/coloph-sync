@@ -32,6 +32,8 @@ Do not rely on this skill as the only guard against an invalid release.
 
 If delivery fails, diagnose and repair through `sync-operator` within existing authorization.
 Follow the project version policy when a repair requires another release.
+Preserve immutable release tags and published artifacts.
+Determine the publication outcome before choosing a repair that changes the release version.
 
 Check actual publication and installation before reporting a release complete.
 An existing Git tag, a successful push, or branch delivery alone does not prove package publication.

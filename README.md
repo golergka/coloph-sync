@@ -126,29 +126,35 @@ At a deployment barrier, only its parent can merge until that parent has complet
 
 ## Deploy contract
 
-Each cycle merges ready work, runs the integration check, pushes main, and deploys HEAD.
+A normal `run` cycle merges ready work, runs the integration check, pushes main, and deploys HEAD if delivery is required.
 Deployment tooling, configuration, and payload all come from that commit.
 The command receives `COLOPH_SYNC_COMMIT`, `COLOPH_SYNC_ATTEMPT_ID`, `COLOPH_SYNC_RUN_ID`,
 `COLOPH_SYNC_DEPLOYED_COMMIT`, and `COLOPH_SYNC_CONTEXT=deploy`.
 
-Exit 0 confirms project-defined delivery. A failure or interruption stops the cycle.
+Exit 0 confirms project-defined delivery of HEAD. A failure or interruption stops the cycle.
 The operator diagnoses the failure and arranges a checked repair. The next cycle uses the same normal workflow.
 Project commands own external operations and any necessary recovery.
+They must handle repeated calls safely, including a lost acknowledgment after successful delivery.
 A synchronous command can finish all its work before returning.
 A command that starts background work checks that work through the relevant service before it reports delivery.
 
 The project defines release policy. It can publish automatically, publish after a version change, or verify that HEAD reached a branch.
 This repository publishes new declared versions. An already published version makes delivery verify that HEAD reached `origin/main`.
-Project status therefore distinguishes branch delivery from package publication.
+The `deployed` verdict confirms project-defined delivery. Package publication requires the project's separate publication checks.
 
-The coordinator saves completion before publishing its immutable attempt tag and moving `deployed` tag.
-For a completed delivery, a repeated cycle can finish publishing those records.
+The coordinator alone owns its immutable `deploy/<attempt-id>` tag and moving `deployed` tag.
+It saves completion before publishing these tags.
+If HEAD is unchanged after completed delivery, the next cycle finishes publishing these records.
 Concurrent changes to the moving tag produce an error for operator review.
 Manual deployment uses `uv run coloph-sync deploy` with the same lock and records.
-An explicit `--commit` identifies HEAD. The `--rollback` option authorizes delivery of an intentionally restored HEAD.
+An explicit `--commit` must resolve to the checked-out HEAD.
+The `--rollback` option requires `--commit` and authorizes delivery of an intentionally restored HEAD.
+The command receives `COLOPH_SYNC_ROLLBACK=1` for rollback, or `0` otherwise.
+`COLOPH_SYNC_MODE` identifies the command as `run` or `deploy`.
 
 Local checks and CI use the same validation command. New releases also build and exercise their artifacts before tag creation.
-Tags and artifacts refer to the checked source. Project commands check existing publications through the registry.
+Tags and artifacts refer to the checked source. Published release tags and artifacts are immutable.
+Project commands check existing publications through the registry.
 
 ## Status and agents
 

@@ -53,6 +53,8 @@ The coordinator merges ready work, checks it, pushes main, and deploys HEAD.
 Deployment tooling, configuration, and payload all come from HEAD.
 Project deployment commands own external work and any necessary recovery.
 Use the project's failure diagnostics to determine the repair.
+Preserve coordinator records, checks, deployment barriers, and Git history during recovery.
+Use the coordinator for delivery so its lock and checks govern each deployment.
 
 Retry a transient failure once. After repeated failure with the same evidence, investigate instead of repeating it unchanged.
 After three unsuccessful repairs for the same cause, report the unresolved cause and the required next action.
