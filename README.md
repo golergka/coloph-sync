@@ -1,5 +1,7 @@
 # coloph-sync
 
+*Part of Coloph Works: agent-native building blocks for better software.*
+
 Commit checks, local worktree integration, and deployment coordination for any Git project.
 The utility is written in Python. Projects integrate through commands, not Python imports.
 Licensed under GPL-3.0-only.
