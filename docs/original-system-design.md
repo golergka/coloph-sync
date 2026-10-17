@@ -90,6 +90,13 @@ Review covers the staged changes plus the contiguous WIP/failed history since th
 
 The current implementation uses a **fresh session for each review**, including fixes. Previous findings are passed explicitly rather than relying on a preserved conversation. The root uses Sonnet and the concern specialists use Haiku. Mechanical invariants remain deterministic checks rather than prompt-only rules.
 
+## Design decisions and tradeoffs
+
+- **Serializing merges:** Serialization allows failures to be detected not only in changesets themselves, but also in their interactions in merge commits.
+- **Checks in commit hooks:** These checks are much closer to the coding agent itself. This allows immediate interactivity without waiting for feedback from some cloud environment.
+- **Hierarchical review:** This allows fine-grained control over different concerns and better monitoring of review performance. If some failures are repeatedly not caught well enough, it is usually enough to change just one of the agents, without being afraid of how that prompt change would affect the whole system.
+- **Who resolves conflicts:** Moving conflict resolution away from the coordinator and back is something I struggled with, and the choice probably depends on the project. It depends on the nature of the conflicts that usually occur: trivial ones versus ones requiring context about a particular field. It is also a latency versus throughput tradeoff: the coordinator fixes conflicts without delegation, while delegating allows merge fixes to be parallelised between agents.
+
 ## Sources and scope
 
 This is a design reference spanning multiple implementations, not an assertion that every component is present or active in the current release. The current public command contracts were checked against source; tests were not rerun for this document.
